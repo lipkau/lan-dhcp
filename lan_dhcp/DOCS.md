@@ -42,6 +42,10 @@ The policy itself, with its ranges, reservations and options, is kept in `lipkau
 dnsmasq keeps its leases in the app's data folder, as `/data/dnsmasq.leases`. They survive restarts and updates;
 uninstalling the app deletes them. Don't set `dhcp-leasefile` in `dnsmasq.conf`.
 
+To take over from another DHCP server, put its leases in dnsmasq's lease format into the app config folder as
+`dnsmasq.leases.seed` before the first start. The app copies them while it has no lease file of its own, then ignores
+the seed. Remove it once the cutover is done.
+
 ## Start and logs
 
 When it starts, the app checks the interface name, runs `dnsmasq --test` on the config, then starts dnsmasq.

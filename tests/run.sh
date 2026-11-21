@@ -48,7 +48,7 @@ expect 1 "failed dnsmasq --test" "fails on an invalid config" \
     --mount "type=bind,src=$tests/broken,dst=/config,readonly" -e LAN_INTERFACE=eth0
 expect 1 "/data is missing" "fails without /data" \
     --mount "$config" -e LAN_INTERFACE=eth0
-expect 1 "cannot open or create lease file" "fails with a read-only /data" \
+expect 1 "lease file" "fails with a read-only /data" \
     --mount "$config" --mount "type=bind,src=$work/empty,dst=/data,readonly" -e LAN_INTERFACE=eth0
 expect 1 "does not exist" "fails on a missing interface" \
     --mount "$config" --mount "type=bind,src=$work/empty,dst=/data" -e LAN_INTERFACE=end0
@@ -81,6 +81,12 @@ else
 fi
 docker exec "$server" cat /data/dnsmasq.leases >"$work/out" 2>&1 || true
 if grep -q "02:00:00:00:00:02" "$work/out"; then pass "writes the lease file"; else fail "writes the lease file"; fi
+if grep -q "00:00:5e:00:53:01 172.31.250.120" "$work/out" &&
+    docker logs "$server" 2>&1 | grep -q "imported 1 leases"; then
+    pass "imports the lease seed when there is no lease file"
+else
+    fail "imports the lease seed when there is no lease file"
+fi
 docker exec "$server" ps -o user,args >"$work/out" 2>&1 || true
 if grep -q "^nobody .*dnsmasq" "$work/out"; then pass "drops privileges"; else fail "drops privileges"; fi
 if [ "$failed" = 1 ]; then

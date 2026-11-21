@@ -3,6 +3,7 @@
 # The same contract applies under Home Assistant and Docker; README.md describes it.
 #   LAN_INTERFACE        interface to serve; else the `interface` option in /data/options.json
 #   DNSMASQ_TEST_ONLY=1  stop after `dnsmasq --test`
+# /config/dnsmasq.leases.seed, if present, becomes the lease file when /data has none.
 set -eu
 
 config=/config/dnsmasq.conf
@@ -42,6 +43,14 @@ dnsmasq --test --conf-file="$config" --interface="$interface" ||
 # dnsmasq itself fails loudly when it cannot write the lease file.
 [ -d "$data" ] || die "$data is missing: mount a writable directory there for $leases"
 [ -e "/sys/class/net/$interface" ] || die "interface $interface does not exist on this host"
+
+# One-time import for a cutover: a seed in the config folder becomes the lease file while
+# there is none yet, so dnsmasq knows the leases another DHCP server handed out.
+seed=/config/dnsmasq.leases.seed
+if [ ! -e "$leases" ] && [ -f "$seed" ]; then
+    cp "$seed" "$leases" || die "cannot create lease file $leases from $seed"
+    echo "lan-dhcp: imported $(wc -l <"$leases") leases from $seed"
+fi
 
 echo "lan-dhcp: serving $interface, leases in $leases"
 exec dnsmasq --keep-in-foreground --log-facility=- --conf-file="$config" \
