@@ -1,0 +1,3 @@
+# The image needs only the entrypoint; the Dockerfile downloads the dnsmasq source.
+*
+!entrypoint.sh

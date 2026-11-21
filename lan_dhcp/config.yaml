@@ -1,0 +1,26 @@
+# Home Assistant app manifest: https://contributors.home-assistant.io/apps/reference/configuration/
+# Supervisor pulls `<image>:<version>`; a v<version> release tag publishes it (see README.md).
+name: LAN DHCP
+version: "1.0.0"
+slug: lan_dhcp
+description: dnsmasq DHCPv4 server and lease DNS for the home LAN, configured from a raw dnsmasq.conf
+url: https://github.com/lipkau/lan-dhcp
+arch:
+  - aarch64
+  - amd64
+image: ghcr.io/lipkau/lan-dhcp
+startup: system
+# Never starts on its own: only one DHCP server may serve the LAN (DOCS.md).
+boot: manual
+host_network: true
+init: false
+privileged:
+  - NET_ADMIN
+  - NET_RAW
+map:
+  - type: app_config
+    read_only: true
+options:
+  interface: end0
+schema:
+  interface: str
