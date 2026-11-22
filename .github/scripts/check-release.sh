@@ -2,10 +2,10 @@
 # Check the app version in lan_dhcp/config.yaml: a semantic version with a lan_dhcp/CHANGELOG.md
 # entry, and equal to the release tag when one is given. Supervisor pulls the image tagged with
 # that version, which only a matching v<version> tag publishes.
-#   scripts/check-release.sh [v<version>]
+#   .github/scripts/check-release.sh [v<version>]
 set -eu
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 version=$(sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}[[:space:]]*$/\1/p' lan_dhcp/config.yaml)
 
 if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then

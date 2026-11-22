@@ -1,0 +1,6 @@
+configuration:
+  interface:
+    name: Network interface
+    description: >-
+      The interface dnsmasq serves DHCP on, for example end0 on a Home Assistant Yellow.
+      Settings > System > Network lists the interfaces of this host.

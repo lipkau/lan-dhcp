@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: dnsmasq configuration questions
+    url: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
+    about: The dnsmasq manual covers every option this app passes through unchanged.

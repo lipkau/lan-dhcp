@@ -1,4 +1,4 @@
-# dnsmasq built from the upstream release tarball. The image holds no configuration: README.md
+# dnsmasq built from the upstream release tarball. The image holds no configuration: ../README.md
 # describes the /config and /data contract. Bump DNSMASQ_VERSION and DNSMASQ_SHA256 together.
 ARG DNSMASQ_VERSION=2.93
 ARG DNSMASQ_SHA256=cc967771abdafeb43d10db18932d6b59fd4bed2c69c22acf8cb96aff6920d55f
