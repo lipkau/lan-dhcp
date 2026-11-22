@@ -1,53 +1,65 @@
 # LAN DHCP
 
-Runs dnsmasq as the home LAN's DHCPv4 server, with lease DNS for the names it hands out. The app adds no settings
-of its own: dnsmasq reads the `dnsmasq.conf` you put in the app config folder.
+Runs [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) as the DHCPv4 server for your network. dnsmasq
+reads a `dnsmasq.conf` that you write; the app adds nothing to it.
 
-## Never run two DHCP servers
+## Before you start
 
-Only one DHCP server may serve the LAN. Before you start this app, turn off every other one: the router's DHCP
-server, AdGuard Home's DHCP server, and the spare container on the NAS. Before another server takes over, stop
-this app.
+A network may have only one DHCP server. Before you start this app, turn off the DHCP server in your router, the
+one in AdGuard Home if you use it, and any other. Two servers answering the same request leave devices with
+conflicting addresses.
 
-So the app starts only when you start it: it doesn't start on boot until you turn on **Start on boot**. Turn that
-on only while this app is the LAN's DHCP server.
+The app therefore doesn't start on its own. It runs only after you start it, and starts on boot only after you turn
+on **Start on boot**. Turn that on once this app is your network's DHCP server.
 
 ## Install
 
-1. Open the app store in **Settings**, choose **Repositories** from its menu, and add
+1. Add the repository: **Settings → Apps → App store → ⋮ → Repositories**, enter
    `https://github.com/lipkau/lan-dhcp`.
 2. Install **LAN DHCP**. Don't start it yet.
 
 ## Configure
 
-1. Put `dnsmasq.conf` in the app config folder. The Samba and SSH apps show it as
-   `addon_configs/<repository id>_lan_dhcp/`; Supervisor creates it when you install the app. dnsmasq reads it
-   as `/config/dnsmasq.conf`, read-only.
-2. `dnsmasq.conf` may include other files from the same folder with `conf-file=/config/<file>` or
-   `conf-dir=/config/<folder>`. Refer to them by their `/config` path.
-3. Set the `interface` option to the LAN interface of the Home Assistant host (`end0` on a Home Assistant
-   Yellow). **Settings → System → Network** lists the interfaces.
+1. Set the **Network interface** option to the interface of this host that is connected to your network, for example
+   `end0` on a Home Assistant Yellow. **Settings → System → Network** lists the interfaces.
+2. Put your `dnsmasq.conf` into the app's configuration folder. The Samba share shows it as
+   `addon_configs/<id>_lan_dhcp`. Home Assistant creates the folder when you install the app. dnsmasq reads it as
+   `/config`, so refer to other files there by that path, for example `conf-file=/config/reservations.conf`.
 
-The policy itself, with its ranges, reservations and options, is kept in `lipkau/docker.config`
-(`spare/dhcp/config/`). Copy it from there.
+A minimal configuration for a /24 behind a router at `192.168.1.1`:
 
-## Options
+```ini
+# DHCP only; leave DNS to your existing resolver.
+port=0
+dhcp-authoritative
+dhcp-range=192.168.1.100,192.168.1.199,255.255.255.0,12h
+dhcp-option=option:router,192.168.1.1
+dhcp-option=option:dns-server,192.168.1.1
+```
 
-| Option      | Default | Meaning                                                                                       |
-| ----------- | ------- | --------------------------------------------------------------------------------------------- |
-| `interface` | `end0`  | The network interface dnsmasq serves. Letters, digits, `.`, `_` and `-`, up to 15 characters. |
+The [dnsmasq manual](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html) lists every option. Leave out
+`dhcp-leasefile`, `log-facility` and `pid-file`: the app sets them.
+
+## Start
+
+Start the app and open its log. On a good start it shows the interface with its address, any merged leases, and the
+DHCP ranges dnsmasq serves. It stops with a message in the log if:
+
+- `dnsmasq.conf` is missing or fails `dnsmasq --test`,
+- the interface doesn't exist, has no IPv4 address, or is loopback.
+
+Then connect a device and check it gets an address from the expected range.
 
 ## Leases
 
-dnsmasq keeps its leases in the app's data folder, as `/data/dnsmasq.leases`. They survive restarts and updates;
-uninstalling the app deletes them. Don't set `dhcp-leasefile` in `dnsmasq.conf`.
+dnsmasq keeps its leases in the app's data folder. They survive restarts and updates; uninstalling the app deletes
+them.
 
-To take over from another DHCP server, put its leases in dnsmasq's lease format into the app config folder as
-`dnsmasq.leases.seed` and restart the app. On every start it adds the seed's unexpired entries whose MAC and address
-are both unknown, so a seed never overrides a lease the app handed out. Remove the seed once its leases have expired.
+To take over from another DHCP server without handing out addresses its clients still hold, export its leases in
+dnsmasq's lease format to `dnsmasq.leases.seed` in the configuration folder and start the app. On every start it
+adds the seed's entries that expire in the future and whose MAC and address it doesn't know yet, so a seed never
+overrides a lease the app handed out. Delete the seed once its leases have expired.
 
-## Start and logs
+## Support
 
-When it starts, the app checks the interface name, runs `dnsmasq --test` on the config, then starts dnsmasq.
-A missing `dnsmasq.conf`, an invalid interface or a config error stops it with a message in the log. dnsmasq logs
-to the app log.
+Report problems in the [issue tracker](https://github.com/lipkau/lan-dhcp/issues).

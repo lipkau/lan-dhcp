@@ -29,5 +29,17 @@
         "useTopLevelHeading": "error"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [".github/PULL_REQUEST_TEMPLATE.md"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "useTopLevelHeading": "off"
+          }
+        }
+      }
+    }
+  ]
 }

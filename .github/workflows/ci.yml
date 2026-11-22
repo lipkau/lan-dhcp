@@ -28,24 +28,34 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx biome ci --reporter=github
-      - run: shellcheck entrypoint.sh tests/run.sh scripts/*.sh
+      - run: shellcheck lan_dhcp/entrypoint.sh tests/run.sh .github/scripts/*.sh
       # Supervisor pulls the image tagged with the app version, so a release tag must match it.
       - name: Check the app version
         env:
           TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: scripts/check-release.sh ${TAG:+"$TAG"}
+        run: .github/scripts/check-release.sh ${TAG:+"$TAG"}
+
+  app:
+    name: App lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Checks lan_dhcp/config.yaml against the Supervisor's app schema and its icon and logo.
+      - uses: frenck/action-addon-linter@d51677290aef26cdfc835271dd3c7343ce502809 # v2.21.2
+        with:
+          path: lan_dhcp
 
   test:
     name: Image test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker build -t lan-dhcp:test .
+      - run: docker build -t lan-dhcp:test lan_dhcp
       - run: tests/run.sh lan-dhcp:test
 
   image:
     name: Image
-    needs: [checks, test]
+    needs: [checks, app, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,6 +64,7 @@ jobs:
       # The Home Assistant app runs on aarch64 (the Yellow), the NAS spare on amd64.
       - uses: lipkau/gh-tools/actions/container-image@e3ed36df3d68c66d7ebf27f5ab0d3b0a7cf45af3 # container-image/v1.0.0
         with:
+          context: lan_dhcp
           platforms: linux/amd64,linux/arm64
           latest: release
 
@@ -61,7 +72,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [checks, test, image]
+    needs: [checks, app, test, image]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job passed or was skipped

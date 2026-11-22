@@ -1,0 +1,38 @@
+name: Bug report
+description: The app or the image does something wrong.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version from Home Assistant, or the image tag.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where it runs
+      options:
+        - Home Assistant app
+        - Docker container
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The app log or `docker logs`, from the start of the container. Replace MAC addresses you don't want to share.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant part of dnsmasq.conf
+      render: ini
