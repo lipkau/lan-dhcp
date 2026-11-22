@@ -69,6 +69,11 @@ that doesn't exist, has no IPv4 address, or is loopback. dnsmasq starts as root 
 | `1.0.0`, `1.0`, `1`, `latest` | Releases. The Home Assistant app pulls the exact version. |
 | `main`                        | The newest build of the main branch, for testing.         |
 
+## Changelog
+
+[`lan_dhcp/CHANGELOG.md`](lan_dhcp/CHANGELOG.md) lists the changes in each release. Home Assistant shows it on the
+app's **Changelog** tab, so it lives with the app.
+
 ## Contributing
 
 [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build, test and release. Report security issues as

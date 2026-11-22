@@ -9,7 +9,7 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 | `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                   |
 | `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
 | `tests/`          | `run.sh` and its fixtures.                                                                                                               |
-| `.github/`        | CI workflows, the release check, Renovate configuration, logo sources, templates.                                                        |
+| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                      |
 
 ## Develop and test
 
@@ -53,11 +53,7 @@ Renovate keeps the Alpine base image and the actions current. dnsmasq is updated
    against Simon Kelley's key (`D6EA CBD6 EE46 B834 248D 1112 15CD DA6A E191 35A2`).
 2. Set `DNSMASQ_VERSION` and `DNSMASQ_SHA256` in `lan_dhcp/Dockerfile` together, and release.
 
-## Logo
+## Icon and logo
 
-`lan_dhcp/icon.png` (128 × 128) and `lan_dhcp/logo.png` (250 × 100) are rendered from the SVGs in `.github/assets/`:
-
-```sh
-rsvg-convert -w 128 -h 128 .github/assets/icon.svg -o lan_dhcp/icon.png
-rsvg-convert -w 250 -h 100 .github/assets/logo.svg -o lan_dhcp/logo.png
-```
+`lan_dhcp/icon.png` is 128 × 128 pixels and `lan_dhcp/logo.png` 250 × 100, as Home Assistant expects. Keep them as
+PNGs with a transparent background, and check the logo on a light and a dark background.
