@@ -16,13 +16,13 @@ Only one DHCP server may serve the LAN at a time. Neither the app nor the spare 
 
 The same under Home Assistant and Docker:
 
-| Path or variable              | Meaning                                                                                                                                             |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/config`                     | Read-only config directory. Must contain `dnsmasq.conf`, which may include other files there with `conf-file=/config/…` or `conf-dir=/config/…`.    |
-| `/data`                       | Writable directory for the lease file, `/data/dnsmasq.leases`. It must exist.                                                                       |
-| `/config/dnsmasq.leases.seed` | Optional. Copied to `/data/dnsmasq.leases` on a start when there is no lease file yet, to take over the leases of another DHCP server.              |
-| `LAN_INTERFACE`               | The interface dnsmasq serves. Under Home Assistant, the app option `interface` (read from `/data/options.json`) is used when the variable is unset. |
-| `DNSMASQ_TEST_ONLY=1`         | Stop after `dnsmasq --test`.                                                                                                                        |
+| Path or variable                                           | Meaning                                                                                                                                             |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/config`                                                  | Read-only config directory. Must contain `dnsmasq.conf`, which may include other files there with `conf-file=/config/…` or `conf-dir=/config/…`.    |
+| `/data`                                                    | Writable directory for the lease file, `/data/dnsmasq.leases`. It must exist.                                                                       |
+| `/config/dnsmasq.leases.seed`, `/data/dnsmasq.leases.seed` | Optional lease seeds. On start, unexpired entries whose MAC and address are both unknown are added to `/data/dnsmasq.leases`.                       |
+| `LAN_INTERFACE`                                            | The interface dnsmasq serves. Under Home Assistant, the app option `interface` (read from `/data/options.json`) is used when the variable is unset. |
+| `DNSMASQ_TEST_ONLY=1`                                      | Stop after `dnsmasq --test`.                                                                                                                        |
 
 The entrypoint checks that `dnsmasq.conf` exists and that the interface name is a plain Linux interface name, runs
 `dnsmasq --test`, checks that `/data` and the interface exist, then runs:

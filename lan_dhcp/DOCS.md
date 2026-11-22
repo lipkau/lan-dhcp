@@ -43,8 +43,8 @@ dnsmasq keeps its leases in the app's data folder, as `/data/dnsmasq.leases`. Th
 uninstalling the app deletes them. Don't set `dhcp-leasefile` in `dnsmasq.conf`.
 
 To take over from another DHCP server, put its leases in dnsmasq's lease format into the app config folder as
-`dnsmasq.leases.seed` before the first start. The app copies them while it has no lease file of its own, then ignores
-the seed. Remove it once the cutover is done.
+`dnsmasq.leases.seed` and restart the app. On every start it adds the seed's unexpired entries whose MAC and address
+are both unknown, so a seed never overrides a lease the app handed out. Remove the seed once its leases have expired.
 
 ## Start and logs
 

@@ -3,7 +3,8 @@
 # The same contract applies under Home Assistant and Docker; README.md describes it.
 #   LAN_INTERFACE        interface to serve; else the `interface` option in /data/options.json
 #   DNSMASQ_TEST_ONLY=1  stop after `dnsmasq --test`
-# /config/dnsmasq.leases.seed, if present, becomes the lease file when /data has none.
+# A lease seed (/config/dnsmasq.leases.seed or /data/dnsmasq.leases.seed) is merged into the
+# lease file on start: entries whose MAC and address are both unknown are added.
 set -eu
 
 config=/config/dnsmasq.conf
@@ -43,15 +44,28 @@ dnsmasq --test --conf-file="$config" --interface="$interface" ||
 # dnsmasq itself fails loudly when it cannot write the lease file.
 [ -d "$data" ] || die "$data is missing: mount a writable directory there for $leases"
 [ -e "/sys/class/net/$interface" ] || die "interface $interface does not exist on this host"
+[ "$interface" != lo ] || die "refusing to serve the loopback interface"
+addresses=$(ip -4 -o addr show dev "$interface" | awk '{print $4}' | tr '\n' ' ')
+[ -n "$addresses" ] || die "interface $interface has no IPv4 address"
 
-# One-time import for a cutover: a seed in the config folder becomes the lease file while
-# there is none yet, so dnsmasq knows the leases another DHCP server handed out.
-seed=/config/dnsmasq.leases.seed
-if [ ! -e "$leases" ] && [ -f "$seed" ]; then
-    cp "$seed" "$leases" || die "cannot create lease file $leases from $seed"
-    echo "lan-dhcp: imported $(wc -l <"$leases") leases from $seed"
-fi
+# Merge lease seeds, for example the old DHCP server's leases at a cutover or a fresh export
+# at a failover. Only complete lines with a future expiry and an unknown MAC and address are
+# added, so a seed never overrides a lease dnsmasq handed out itself.
+touch "$leases" || die "cannot create lease file $leases"
+for seed in /config/dnsmasq.leases.seed "$data/dnsmasq.leases.seed"; do
+    [ -f "$seed" ] || continue
+    before=$(wc -l <"$leases")
+    awk -v now="$(date +%s)" '
+        FILENAME == ARGV[1] { mac[$2] = 1; ip[$3] = 1; next }
+        NF == 5 && $1 ~ /^[0-9]+$/ && $1 > now && $2 ~ /^[0-9a-f:]+$/ && length($2) == 17 &&
+            $3 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && !($2 in mac) && !($3 in ip) {
+            print; mac[$2] = 1; ip[$3] = 1
+        }
+    ' "$leases" "$seed" >"$leases.merge" || die "cannot read lease seed $seed"
+    cat "$leases.merge" >>"$leases" && rm -f "$leases.merge"
+    echo "lan-dhcp: merged $(($(wc -l <"$leases") - before)) leases from $seed"
+done
 
-echo "lan-dhcp: serving $interface, leases in $leases"
-exec dnsmasq --keep-in-foreground --log-facility=- --conf-file="$config" \
+echo "lan-dhcp: serving $interface ($addresses), leases in $leases"
+exec dnsmasq --keep-in-foreground --log-facility=- --pid-file --conf-file="$config" \
     --interface="$interface" --dhcp-leasefile="$leases"
