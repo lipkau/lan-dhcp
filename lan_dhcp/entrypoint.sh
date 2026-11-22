@@ -4,7 +4,8 @@
 #   LAN_INTERFACE        interface to serve; else the `interface` option in /data/options.json
 #   DNSMASQ_TEST_ONLY=1  stop after `dnsmasq --test`
 # A lease seed (/config/dnsmasq.leases.seed or /data/dnsmasq.leases.seed) is merged into the
-# lease file on start: entries whose MAC and address are both unknown are added.
+# lease file on start: expired leases are dropped, then seed entries whose MAC and address no
+# live lease holds are added.
 set -eu
 
 config=/config/dnsmasq.conf
@@ -49,21 +50,31 @@ addresses=$(ip -4 -o addr show dev "$interface" | awk '{print $4}' | tr '\n' ' '
 [ -n "$addresses" ] || die "interface $interface has no IPv4 address"
 
 # Merge lease seeds, for example the old DHCP server's leases at a cutover or a fresh export
-# at a failover. Only complete lines with a future expiry and an unknown MAC and address are
-# added, so a seed never overrides a lease dnsmasq handed out itself.
+# at a failover. Expired leases are dropped first: dnsmasq prunes them on start anyway, and a
+# stale entry must not hide a seed entry for the same MAC or address. Then only complete seed
+# lines with a future expiry and a MAC and address no live lease holds are added, so a seed
+# never overrides a lease dnsmasq handed out itself.
 touch "$leases" || die "cannot create lease file $leases"
 for seed in /config/dnsmasq.leases.seed "$data/dnsmasq.leases.seed"; do
     [ -f "$seed" ] || continue
-    before=$(wc -l <"$leases")
-    awk -v now="$(date +%s)" '
-        FILENAME == ARGV[1] { mac[$2] = 1; ip[$3] = 1; next }
+    awk -v now="$(date +%s)" -v out="$leases.merge" -v seed="$seed" '
+        FILENAME == ARGV[1] {
+            # Lease lines have at least four fields; keep any other line (duid, vendorclass).
+            if (NF >= 4 && $1 ~ /^[0-9]+$/ && $1 != 0 && $1 <= now) { expired++; next }
+            if (NF >= 4) { mac[$2] = 1; ip[$3] = 1 }
+            print > out
+            next
+        }
         NF == 5 && $1 ~ /^[0-9]+$/ && $1 > now && $2 ~ /^[0-9a-f:]+$/ && length($2) == 17 &&
             $3 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && !($2 in mac) && !($3 in ip) {
-            print; mac[$2] = 1; ip[$3] = 1
+            print > out; mac[$2] = 1; ip[$3] = 1; added++
         }
-    ' "$leases" "$seed" >"$leases.merge" || die "cannot read lease seed $seed"
-    cat "$leases.merge" >>"$leases" && rm -f "$leases.merge"
-    echo "lan-dhcp: merged $(($(wc -l <"$leases") - before)) leases from $seed"
+        END {
+            printf "" > out
+            printf "lan-dhcp: merged %d leases from %s, dropped %d expired\n", added, seed, expired
+        }
+    ' "$leases" "$seed" || die "cannot merge lease seed $seed"
+    mv "$leases.merge" "$leases" || die "cannot replace lease file $leases"
 done
 
 echo "lan-dhcp: serving $interface ($addresses), leases in $leases"

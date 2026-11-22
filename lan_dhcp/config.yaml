@@ -1,7 +1,7 @@
 # Home Assistant app manifest: https://contributors.home-assistant.io/apps/reference/configuration/
 # Supervisor pulls `<image>:<version>`; a v<version> release tag publishes it (see README.md).
 name: LAN DHCP
-version: "1.0.0"
+version: "1.0.1"
 slug: lan_dhcp
 description: dnsmasq DHCPv4 server and lease DNS for the home LAN, configured from a raw dnsmasq.conf
 url: https://github.com/lipkau/lan-dhcp

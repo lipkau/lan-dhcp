@@ -57,8 +57,8 @@ them.
 
 To take over from another DHCP server without handing out addresses its clients still hold, export its leases in
 dnsmasq's lease format to `dnsmasq.leases.seed` in the configuration folder and start the app. On every start it
-adds the seed's entries that expire in the future and whose MAC and address it doesn't know yet, so a seed never
-overrides a lease the app handed out. Delete the seed once its leases have expired.
+drops its expired leases, then adds the seed's entries that expire in the future and whose MAC and address no live
+lease holds, so a seed never overrides a lease the app handed out. Delete the seed once its leases have expired.
 
 ## Support
 
