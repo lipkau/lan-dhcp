@@ -9,7 +9,7 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 | `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                   |
 | `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
 | `tests/`          | `run.sh` and its fixtures.                                                                                                               |
-| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                      |
+| `.github/`        | CI workflows, the release scripts, Renovate configuration, templates.                                                                    |
 
 ## Develop and test
 
@@ -33,17 +33,28 @@ The `CI result` job must pass before a merge.
 
 ## Releases
 
-Home Assistant pulls `ghcr.io/lipkau/lan-dhcp:<version>`, where `<version>` is `version` in
-`lan_dhcp/config.yaml`. Only a matching release tag publishes that image.
+Every merge to `main` that changes the app (anything in `lan_dhcp/` apart from its changelog) releases it. Don't
+bump the version or write a changelog entry in the pull request. After the merge, CI's **Release** job:
 
-1. In the pull request, bump `version` in `lan_dhcp/config.yaml` and add a `## <version>` entry to
-   `lan_dhcp/CHANGELOG.md`.
-2. After the merge, tag the merge commit on `main` as `v<version>` and push the tag. CI rejects a tag that doesn't
-   match the version.
-3. Home Assistant offers the update as soon as `main` has the new version. Wait for the tag's image job to finish
-   before you install it.
+1. bumps `version` in `lan_dhcp/config.yaml` and adds a `## <version>` entry to `lan_dhcp/CHANGELOG.md` that lists
+   the subject of each commit since the last release;
+2. commits that to `main` as `chore(release): <version>` and tags it `v<version>`;
+3. and the tag's CI run publishes `ghcr.io/lipkau/lan-dhcp:<version>`, the image Home Assistant pulls.
 
-Bump the version for every change to the image or to `config.yaml`. Documentation changes don't need a release.
+The commit subjects decide the version, so write them as [conventional commits](https://www.conventionalcommits.org/):
+
+| Subject                                   | Release                  |
+| ----------------------------------------- | ------------------------ |
+| `feat!: …` or any other type with `!`     | major: `1.4.2` → `2.0.0` |
+| `feat: …`                                 | minor: `1.4.2` → `1.5.0` |
+| anything else (`fix:`, `chore(deps):`, …) | patch: `1.4.2` → `1.4.3` |
+
+A squash merge's subject is the pull request title. The changelog shows each subject without its type, so write it
+for the person who updates the app. Changes outside `lan_dhcp/`, such as tests, CI or the README, don't release.
+
+The job pushes with the `RELEASE_DEPLOY_KEY` secret: the private half of a deploy key with write access, which the
+`main` ruleset lists as a bypass actor. A push with the workflow token would start no CI run for the tag. Home
+Assistant offers the update as soon as `main` has the new version; the image follows a few minutes later.
 
 ## Update dnsmasq
 

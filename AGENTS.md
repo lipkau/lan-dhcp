@@ -14,3 +14,6 @@ A Home Assistant app repository and container image that run dnsmasq from a user
   doesn't start.
 - Keep `boot: manual` in `lan_dhcp/config.yaml`: two DHCP servers must never serve one network.
 - The container starts as root on purpose; dnsmasq drops to `nobody` after binding UDP 67.
+- Every merge that changes `lan_dhcp/` releases. Never bump `version` or add a `lan_dhcp/CHANGELOG.md` entry in a
+  pull request; CI's release job writes both. Commit subjects and pull request titles are conventional commits,
+  because they set the version and become the changelog.
