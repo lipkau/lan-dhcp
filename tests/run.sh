@@ -63,8 +63,10 @@ chmod 777 "$work/data"
 # A live lease that the seed must not override (tests/config/dnsmasq.leases.seed also lists
 # 172.31.250.121 for another MAC and an expired entry), and an expired lease on the address the
 # seed gives 00:00:5e:00:53:01, which must not block that entry.
-printf '4102444800 00:00:5e:00:53:02 172.31.250.121 existing *\n1000 00:00:5e:00:53:05 172.31.250.120 stale *\n' \
-    >"$work/data/dnsmasq.leases"
+# Let the container create the fixture as root, like the app creates a real lease file.
+printf '4102444800 00:00:5e:00:53:02 172.31.250.121 existing *\n1000 00:00:5e:00:53:05 172.31.250.120 stale *\n' |
+    docker run --rm -i --mount "type=bind,src=$work/data,dst=/data" --entrypoint tee \
+        "$image" /data/dnsmasq.leases >/dev/null
 docker network create --subnet 172.31.250.0/24 --gateway 172.31.250.1 "$network" >/dev/null
 set --
 if [ -n "$profile" ]; then set -- --security-opt "apparmor=$profile"; fi
@@ -74,6 +76,10 @@ docker run -d --name "$server" --network "$network" --ip 172.31.250.2 \
     "$image" >/dev/null
 for _ in 1 2 3 4 5 6 7 8 9 10; do
     docker logs "$server" 2>&1 | grep -q "sockets bound exclusively" && break
+    if [ "$(docker inspect --format '{{.State.Running}}' "$server")" = false ]; then
+        docker logs "$server" >&2
+        exit 1
+    fi
     sleep 1
 done
 if docker run --rm --network "$network" --mac-address 02:00:00:00:00:02 --entrypoint udhcpc \
