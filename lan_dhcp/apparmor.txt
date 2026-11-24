@@ -6,7 +6,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   /usr/local/bin/lan-dhcp rix,
   /{usr/,}bin/busybox rix,
   /usr/sbin/dnsmasq rix,
-  /sbin/su-exec Cx -> status-launcher,
+  /sbin/su-exec Cx -> status,
   /usr/local/bin/lan-dhcp-status rix,
   /{usr/,}lib/ld-musl-*.so.1 mr,
   /{usr/,}lib/libc.musl-*.so.1 mr,
@@ -46,27 +46,22 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   signal (receive),
   signal peer=@{profile_name},
 
-  profile status-launcher flags=(attach_disconnected,mediate_deleted) {
+  profile status flags=(attach_disconnected,mediate_deleted) {
     /sbin/su-exec mr,
+    /usr/local/bin/lan-dhcp-status mrix,
     /{usr/,}lib/ld-musl-*.so.1 mr,
     /{usr/,}lib/libc.musl-*.so.1 mr,
     /etc/{passwd,group} r,
     /data/dnsmasq.leases r,
     /dev/null rw,
-    /usr/local/bin/lan-dhcp-status Cx -> status,
+
+    # su-exec drops the user and group before starting the web server.
     capability setgid,
     capability setuid,
     # musl can probe the local name-service cache before reading passwd and group.
     network unix stream,
+    network inet stream,
     signal (receive),
-
-    profile status flags=(attach_disconnected,mediate_deleted) {
-      /usr/local/bin/lan-dhcp-status mr,
-      /data/dnsmasq.leases r,
-      /dev/null rw,
-      network inet stream,
-      signal (receive),
-      signal peer=@{profile_name},
-    }
+    signal (send) set=(urg),
   }
 }
