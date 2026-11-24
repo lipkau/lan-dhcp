@@ -56,6 +56,8 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
     /usr/local/bin/lan-dhcp-status Cx -> status,
     capability setgid,
     capability setuid,
+    # musl can probe the local name-service cache before reading passwd and group.
+    network unix stream,
     signal (receive),
 
     profile status flags=(attach_disconnected,mediate_deleted) {

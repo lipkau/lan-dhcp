@@ -82,7 +82,7 @@ if [ -n "${SUPERVISOR_SOCKET:-}${SUPERVISOR_TOKEN:-}" ]; then
     (
         port=$(/usr/local/bin/lan-dhcp-status ingress-port) || exit 1
         # Pass a read-only lease descriptor and strip the Supervisor credentials.
-        exec env -i /sbin/su-exec lan-dhcp-status /usr/local/bin/lan-dhcp-status "$port" "$interface" 3<"$leases"
+        exec env -i /sbin/su-exec lan-dhcp-status:lan-dhcp-status /usr/local/bin/lan-dhcp-status "$port" "$interface" 3<"$leases"
     ) &
 fi
 unset SUPERVISOR_SOCKET SUPERVISOR_TOKEN HASSIO_TOKEN

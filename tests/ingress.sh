@@ -89,6 +89,10 @@ for _ in 1 2 3 4 5; do
     fi
     sleep 1
 done
-grep -Fq 'test-device' "$work/page" || { cat "$work/client.log" >&2; exit 1; }
+if ! grep -Fq 'test-device' "$work/page"; then
+    cat "$work/client.log" >&2
+    docker top "$server" -eo pid,uid,args >&2 || true
+    exit 1
+fi
 grep -Fq "$bridge" "$work/page"
 test "$(curl --max-time 3 --noproxy '*' -s -o /dev/null -w '%{http_code}' "$url")" = 403
