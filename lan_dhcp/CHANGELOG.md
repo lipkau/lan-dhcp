@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Shows the serving interface and active leases on a read-only Home Assistant Ingress page for administrators.
+
+## 1.0.2
+
+- Confines LAN DHCP with AppArmor. The Home Assistant app blocks external hooks and writes outside its lease files.
+
 ## 1.0.1
 
 - Drops expired leases before merging a lease seed. An expired lease for the same MAC or address no longer

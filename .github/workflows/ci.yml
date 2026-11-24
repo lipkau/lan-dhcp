@@ -26,9 +26,19 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Check the lease page
+        working-directory: lan_dhcp/status
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
       - run: npm ci
       - run: npx biome ci --reporter=github
-      - run: shellcheck lan_dhcp/entrypoint.sh tests/run.sh .github/scripts/*.sh
+      - run: shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
       # Supervisor pulls the image tagged with the app version, so a release tag must match it.
       - name: Check the app version
         env:
@@ -52,6 +62,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build -t lan-dhcp:test lan_dhcp
       - run: tests/run.sh lan-dhcp:test
+      - name: Test with the app's AppArmor profile
+        run: |
+          profile=local_lan_dhcp
+          policy="$RUNNER_TEMP/$profile"
+          sed "s/^profile lan_dhcp /profile $profile /" lan_dhcp/apparmor.txt > "$policy"
+          names=$(sudo apparmor_parser --names --skip-cache "$policy")
+          test "$(printf '%s\n' "$names" | grep -xc "$profile")" = 1
+          test -z "$(printf '%s\n' "$names" | grep -vE "^$profile(//.+)?$")"
+          sudo apparmor_parser --replace --skip-cache "$policy"
+          started=$(date +%s)
+          tests/run.sh lan-dhcp:test "$profile"
+          tests/ingress.sh lan-dhcp:test "$profile"
+          denials=$(sudo journalctl --dmesg --since "@$started" --no-pager --grep 'apparmor="DENIED"' |
+            grep -F "profile=\"$profile" | grep -vF 'name="/data/lan-dhcp-test-blocked"' || true)
+          if [ -n "$denials" ]; then
+            printf '%s\n' "$denials"
+            exit 1
+          fi
+      - name: Show AppArmor denials
+        if: failure()
+        run: sudo journalctl --dmesg --grep 'apparmor="DENIED"' --no-pager
 
   image:
     name: Image

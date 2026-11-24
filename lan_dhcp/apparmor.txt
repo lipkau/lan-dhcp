@@ -1,0 +1,86 @@
+abi <abi/3.0>,
+#include <tunables/global>
+
+# The Go runtime can start without these optional host probes.
+@{GO_PROBES} = /sys/kernel/mm/transparent_hugepage/hpage_pmd_size /proc/[0-9]*/cgroup
+
+# Supervisor renames the top-level profile to the installed app ID.
+profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
+  /usr/local/bin/lan-dhcp rix,
+  /{usr/,}bin/busybox rix,
+  /usr/sbin/dnsmasq Cx -> dnsmasq,
+  /sbin/su-exec Cx -> status,
+  /usr/local/bin/lan-dhcp-status rix,
+  /{usr/,}lib/ld-musl-*.so.1 mr,
+
+  /dev/null rw,
+  deny @{GO_PROBES} r,
+  /sys/class/net/ r,
+  /sys/devices/**/net/{,**} r,
+  /config/{,**} r,
+  # A Unix socket connection can also be checked against the listener's bind path.
+  /run/supervisor/api/supervisor.sock rw,
+  /run/{os,supervisor}/supervisor/apps/*_lan_dhcp/supervisor.sock rw,
+  /data/ r,
+  /data/{options.json,dnsmasq.leases.seed} r,
+  /data/{dnsmasq.leases,dnsmasq.leases.merge} rw,
+
+  network netlink raw,
+  network unix dgram,
+  network unix stream,
+  network inet stream,
+  signal (receive),
+  signal peer=@{profile_name},
+
+  profile dnsmasq flags=(attach_disconnected,mediate_deleted) {
+    /usr/sbin/dnsmasq mr,
+    /{usr/,}lib/ld-musl-*.so.1 mr,
+    /dev/null rw,
+    /dev/urandom r,
+    owner @{PROC}/@{pid}/fd/ r,
+    /etc/{passwd,group,hosts,ethers,resolv.conf,localtime} r,
+    /usr/share/zoneinfo/** r,
+    /config/{,**} r,
+    /data/dnsmasq.leases rw,
+
+    # dnsmasq binds privileged ports, drops to nobody, and retains the
+    # capabilities it needs to deliver DHCP replies and check addresses.
+    capability net_bind_service,
+    capability net_admin,
+    capability net_raw,
+    capability setgid,
+    capability setuid,
+    network netlink raw,
+    network unix dgram,
+    # musl probes nscd when the default dnsmasq group is missing from /etc/group.
+    unix (create) type=stream,
+    network inet dgram,
+    network inet raw,
+    network inet stream,
+    network inet6 dgram,
+    network inet6 stream,
+
+    signal (receive),
+    signal (send) set=(alrm) peer=@{profile_name},
+  }
+
+  profile status flags=(attach_disconnected,mediate_deleted) {
+    /sbin/su-exec mr,
+    /usr/local/bin/lan-dhcp-status mrix,
+    /{usr/,}lib/ld-musl-*.so.1 mr,
+    /etc/{passwd,group} r,
+    /data/dnsmasq.leases r,
+    /dev/null rw,
+    deny @{GO_PROBES} r,
+    deny /etc/localtime r,
+    deny /proc/sys/net/core/somaxconn r,
+
+    # su-exec drops the user and group before starting the web server.
+    capability setgid,
+    capability setuid,
+    network inet stream,
+    deny network inet6 stream,
+    signal (receive),
+    signal (send) set=(urg) peer=@{profile_name},
+  }
+}

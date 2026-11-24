@@ -52,6 +52,11 @@ Then connect a device and check it gets an address from the expected range.
 
 ## Leases
 
+In Home Assistant, select **Open Web UI** on the running app to see its serving interface and current IPv4 leases.
+The page requires Supervisor 2026.10.2 or later. It is available to administrators and shows expiry times in UTC.
+Select **Refresh** for the latest leases. If the page is unavailable after startup, check the app log and restart
+the app to reconnect it to Supervisor.
+
 dnsmasq keeps its leases in the app's data folder. They survive restarts and updates; uninstalling the app deletes
 them.
 
@@ -59,6 +64,13 @@ To take over from another DHCP server without handing out addresses its clients 
 dnsmasq's lease format to `dnsmasq.leases.seed` in the configuration folder and start the app. On every start it
 drops its expired leases, then adds the seed's entries that expire in the future and whose MAC and address no live
 lease holds, so a seed never overrides a lease the app handed out. Delete the seed once its leases have expired.
+
+## AppArmor
+
+On hosts with AppArmor, Supervisor loads the app's profile. dnsmasq can read files in `/config` and write its
+lease database in `/data`. Keep configuration includes and host lists under `/config` and make them readable by
+the process. The profile blocks external scripts, extra output files and IPv6 router advertisements. Check the
+host log for AppArmor denials if an option fails.
 
 ## Support
 
