@@ -18,7 +18,7 @@ You need Docker, Node.js (the version in `.nvmrc`) and [ShellCheck](https://www.
 ```sh
 npm ci
 npx biome ci                                    # formatting and lint
-shellcheck lan_dhcp/entrypoint.sh tests/run.sh .github/scripts/*.sh
+shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
 .github/scripts/check-release.sh                # app version and changelog
 docker build -t lan-dhcp:test lan_dhcp
 tests/run.sh lan-dhcp:test
@@ -26,7 +26,8 @@ tests/run.sh lan-dhcp:test
 
 `tests/run.sh` runs the entrypoint through its failure cases, then starts the image on a temporary Docker network
 and leases addresses to test clients. It removes the network when it finishes. `tests/config/` is a fixture on a
-private test subnet.
+private test subnet. CI also loads the AppArmor profile and runs `tests/ingress.sh` on a Linux Docker host with an
+isolated bridge that mimics Supervisor networking.
 
 Pull requests run the same checks, plus the [Home Assistant app linter](https://github.com/frenck/action-addon-linter).
 The `CI result` job must pass before a merge.
