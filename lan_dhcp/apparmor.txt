@@ -47,6 +47,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   signal peer=@{profile_name},
 
   profile status-launcher flags=(attach_disconnected,mediate_deleted) {
+    /sbin/su-exec mr,
     /{usr/,}lib/ld-musl-*.so.1 mr,
     /{usr/,}lib/libc.musl-*.so.1 mr,
     /etc/{passwd,group} r,
@@ -58,6 +59,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
     signal (receive),
 
     profile status flags=(attach_disconnected,mediate_deleted) {
+      /usr/local/bin/lan-dhcp-status mr,
       /data/dnsmasq.leases r,
       /dev/null rw,
       network inet stream,

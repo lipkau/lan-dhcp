@@ -16,7 +16,11 @@ cleanup() {
     docker rm -f "$server" >/dev/null 2>&1 || true
     docker network rm "$server" >/dev/null 2>&1 || true
     if [ -n "${supervisor:-}" ]; then kill "$supervisor" 2>/dev/null || true; fi
-    rm -rf "$work" "$socket_dir"
+    rm -rf "$work"
+    if [ -d "$socket_dir" ]; then
+        rm -f "$socket_dir/supervisor.sock"
+        sudo rmdir "$socket_dir"
+    fi
 }
 trap cleanup EXIT
 
