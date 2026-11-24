@@ -39,11 +39,41 @@ jobs:
       - run: npm ci
       - run: npx biome ci --reporter=github
       - run: shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
+      - run: tests/release.sh
       # Supervisor pulls the image tagged with the app version, so a release tag must match it.
       - name: Check the app version
         env:
           TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: .github/scripts/check-release.sh ${TAG:+"$TAG"}
+
+  # The release job reads these subjects for the version and the changelog. A squash merge takes the
+  # title or, for one commit, its subject; a merge commit takes the commits. Editing the title doesn't
+  # re-run this job: push again or re-run it.
+  subjects:
+    name: Commit subjects
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Check the title and commit subjects are conventional commits
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?!?: [^ ]'
+          bad=$(
+            { printf '%s\n' "$TITLE"; git log --no-merges --format=%s "$BASE..HEAD"; } |
+              grep -Ev "$pattern" || true
+          )
+          if [ -n "$bad" ]; then
+            printf '%s\n' "$bad" | while IFS= read -r subject; do
+              echo "::error::Not a conventional commit (CONTRIBUTING.md#releases): $subject"
+            done
+            exit 1
+          fi
 
   app:
     name: App lint
@@ -161,7 +191,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [checks, app, test, image, release]
+    needs: [checks, subjects, app, test, image, release]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job passed or was skipped

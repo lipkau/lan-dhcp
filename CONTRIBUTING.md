@@ -9,7 +9,7 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 | `repository.yaml`  | Makes this repository a Home Assistant app repository.                                                                                                     |
 | `lan_dhcp/`        | The app: `config.yaml`, its documentation, changelog, AppArmor profile, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
 | `lan_dhcp/status/` | The read-only Ingress page and its Go tests.                                                                                                               |
-| `tests/`           | `run.sh` and its fixtures.                                                                                                                                 |
+| `tests/`           | The image tests (`run.sh`, `ingress.sh`), the release script test (`release.sh`), and fixtures.                                                            |
 | `.github/`         | CI workflows, the release scripts, Renovate configuration, templates.                                                                                      |
 
 ## Develop and test
@@ -21,6 +21,7 @@ npm ci
 npx biome ci                                    # formatting and lint
 shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
 .github/scripts/check-release.sh                # app version and changelog
+tests/release.sh                                # the release script, in throwaway repositories
 (cd lan_dhcp/status && go vet ./... && go test ./...)
 docker build -t lan-dhcp:test lan_dhcp
 tests/run.sh lan-dhcp:test
@@ -60,6 +61,11 @@ Which subjects count depends on how the pull request is merged:
   a single commit, and you can edit it when you merge.
 - **Merge commit:** the subject of each merged commit that changed the app. If the merge commit itself made the
   change, such as a conflict resolution, the pull request title GitHub writes into its message counts instead.
+
+The **Commit subjects** check fails a pull request whose title or commit subjects aren't conventional commits with
+one of the types `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` or `test`. It
+doesn't run again when you only edit the title: push again or re-run it. It can't see a subject you edit while
+merging, so keep the type there too.
 
 The changelog shows each subject without its type, so write it for the person who updates the app. Changes outside
 `lan_dhcp/`, such as tests, CI or the README, don't release.
