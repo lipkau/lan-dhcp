@@ -85,6 +85,7 @@ if [ -n "${SUPERVISOR_SOCKET:-}${SUPERVISOR_TOKEN:-}" ]; then
         exec env -i /sbin/su-exec lan-dhcp-status /usr/local/bin/lan-dhcp-status "$port" "$interface" 3<"$leases"
     ) &
 fi
+unset SUPERVISOR_SOCKET SUPERVISOR_TOKEN HASSIO_TOKEN
 
 echo "lan-dhcp: serving $interface ($addresses), leases in $leases"
 exec dnsmasq --keep-in-foreground --log-facility=- --pid-file --conf-file="$config" \

@@ -32,6 +32,7 @@ echo '4102444800 02:00:00:00:00:10 172.30.33.110 test-device *' |
 python3 - "$work/supervisor.sock" <<'PY' &
 from http.server import BaseHTTPRequestHandler
 from socketserver import UnixStreamServer
+from os import chmod
 import sys
 
 class AppInfo(BaseHTTPRequestHandler):
@@ -51,6 +52,7 @@ class AppInfo(BaseHTTPRequestHandler):
         self.wfile.write(responses[self.path])
 
 with UnixStreamServer(sys.argv[1], AppInfo) as server:
+    chmod(sys.argv[1], 0o600)
     server.serve_forever()
 PY
 supervisor=$!
@@ -59,6 +61,9 @@ for _ in 1 2 3 4 5; do
     sleep 1
 done
 test -S "$work/supervisor.sock"
+# HAOS Supervisor creates its per-app socket as root with mode 0600.
+docker run --rm --entrypoint chown \
+    --mount "type=bind,src=$work/supervisor.sock,dst=/supervisor.sock" "$image" 0:0 /supervisor.sock
 
 docker network create --subnet 172.30.32.0/23 --gateway 172.30.32.1 \
     --opt "com.docker.network.bridge.name=$bridge" "$server" >/dev/null
