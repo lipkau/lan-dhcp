@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAN DHCP</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #eff5f7;
+      --panel: #fff;
+      --text: #152d39;
+      --muted: #465e6a;
+      --line: #c9d9df;
+      --accent: #066c72;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #14242e;
+        --panel: #1b313d;
+        --text: #eaf4f7;
+        --muted: #b4ccd5;
+        --line: #3d5865;
+        --accent: #8dd9d9;
+      }
+    }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font: 1rem/1.5 system-ui, sans-serif;
+    }
+    main { max-width: 64rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+    header { border-block-start: 4px solid var(--accent); padding-block: 1rem; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); letter-spacing: -.03em; }
+    h2 { font-size: 1.125rem; }
+    header p, .empty { color: var(--muted); }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .75rem;
+      margin-block: 1rem .5rem;
+    }
+    a { color: var(--accent); text-underline-offset: .2em; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .table-wrap { overflow-x: auto; background: var(--panel); border-block: 1px solid var(--line); }
+    table { border-collapse: collapse; text-align: left; width: 100%; }
+    th, td { padding: .75rem 1rem; }
+    thead { color: var(--muted); }
+    tbody tr { border-block-start: 1px solid var(--line); }
+    code, time { white-space: nowrap; }
+    .empty { padding-block: .75rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LAN DHCP</h1>
+    <p>Serving interface <code>{{.Interface}}</code></p>
+  </header>
+  <section aria-labelledby="leases">
+    <div class="section-head">
+      <h2 id="leases">Active leases ({{len .Leases}})</h2>
+      <a href="./">Refresh</a>
+    </div>
+    {{if .Leases}}
+    <div class="table-wrap" role="region" aria-label="Active leases" tabindex="0">
+      <table>
+        <thead>
+          <tr><th scope="col">IPv4 address</th><th scope="col">Hostname</th><th scope="col">MAC address</th><th scope="col">Expires (UTC)</th></tr>
+        </thead>
+        <tbody>
+        {{range .Leases}}
+          <tr><td><code>{{.Address}}</code></td><td>{{if .Hostname}}{{.Hostname}}{{else}}Unknown{{end}}</td><td><code>{{.MAC}}</code></td><td>{{.Expires}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <p class="empty">No active leases.</p>
+    {{end}}
+  </section>
+</main>
+</body>
+</html>

@@ -1,3 +1,5 @@
-# The image needs only the entrypoint; the Dockerfile downloads the dnsmasq source.
+# Allow the entrypoint and status page source into the image build.
 *
 !entrypoint.sh
+!status/
+!status/**

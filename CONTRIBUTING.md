@@ -4,30 +4,32 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 
 ## Layout
 
-| Path              | Contents                                                                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                                     |
-| `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, AppArmor profile, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
-| `tests/`          | `run.sh` and its fixtures.                                                                                                                                 |
-| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                                        |
+| Path               | Contents                                                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repository.yaml`  | Makes this repository a Home Assistant app repository.                                                                                                     |
+| `lan_dhcp/`        | The app: `config.yaml`, its documentation, changelog, AppArmor profile, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
+| `lan_dhcp/status/` | The read-only Ingress page and its Go tests.                                                                                                               |
+| `tests/`           | `run.sh` and its fixtures.                                                                                                                                 |
+| `.github/`         | CI workflows, the release check, Renovate configuration, templates.                                                                                        |
 
 ## Develop and test
 
-You need Docker, Node.js (the version in `.nvmrc`) and [ShellCheck](https://www.shellcheck.net/).
+You need Docker, Node.js (the version in `.nvmrc`) and [ShellCheck](https://www.shellcheck.net/). Use Go 1.27 or later to work on the Ingress page.
 
 ```sh
 npm ci
 npx biome ci                                    # formatting and lint
-shellcheck lan_dhcp/entrypoint.sh tests/run.sh .github/scripts/*.sh
+shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
 .github/scripts/check-release.sh                # app version and changelog
+(cd lan_dhcp/status && go vet ./... && go test ./...)
 docker build -t lan-dhcp:test lan_dhcp
 tests/run.sh lan-dhcp:test
 ```
 
 `tests/run.sh` runs the entrypoint through its failure cases, then starts the image on a temporary Docker network
 and leases addresses to test clients. It removes the network when it finishes. `tests/config/` is a fixture on a
-private test subnet. CI also loads the policy in `lan_dhcp/apparmor.txt` under the Supervisor-style app name
-and runs the suite with it enforced.
+private test subnet. CI loads the AppArmor profile under a Supervisor-style app name and reruns the suite with
+it enforced. The Ingress test uses an isolated bridge that mimics Supervisor networking.
 
 Pull requests run the same checks, plus the [Home Assistant app linter](https://github.com/frenck/action-addon-linter).
 The `CI result` job must pass before a merge.
