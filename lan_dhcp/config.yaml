@@ -12,11 +12,9 @@ image: ghcr.io/lipkau/lan-dhcp
 startup: system
 # Never starts on its own: only one DHCP server may serve the LAN (DOCS.md).
 boot: manual
-apparmor: true
 host_network: true
 ingress: true
 ingress_port: 0
-panel_admin: true
 init: false
 privileged:
   - NET_ADMIN

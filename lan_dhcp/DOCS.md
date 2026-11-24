@@ -67,7 +67,7 @@ lease holds, so a seed never overrides a lease the app handed out. Delete the se
 
 On Home Assistant OS, the app's AppArmor profile allows reads from `/config` and limits writes to the
 lease files in `/data`. Keep included configuration and data files such as host lists under `/config`.
-Lease hooks that execute external programs and options that write to other paths are blocked.
+The profile blocks custom hook scripts under `/config` and writes to other paths.
 
 ## Support
 
