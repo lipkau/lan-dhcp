@@ -34,6 +34,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   capability setuid,
   network netlink raw,
   network unix stream,
+  network unix dgram,
   network inet dgram,
   network inet raw,
   network inet stream,
