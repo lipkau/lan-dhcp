@@ -27,6 +27,9 @@ fail() { echo "FAIL    $1"; sed 's/^/          /' "$work/out"; failed=1; }
 expect() {
     want=$1 text=$2 name=$3
     shift 3
+    if [ -n "$profile" ]; then
+        set -- --security-opt "apparmor=$profile" --security-opt seccomp=unconfined "$@"
+    fi
     if docker run --rm "$@" "$image" >"$work/out" 2>&1; then got=0; else got=1; fi
     if [ "$got" = "$want" ] && grep -qF -- "$text" "$work/out"; then pass "$name"; else fail "$name"; fi
 }
@@ -69,7 +72,7 @@ printf '4102444800 00:00:5e:00:53:02 172.31.250.121 existing *\n1000 00:00:5e:00
         "$image" /data/dnsmasq.leases >/dev/null
 docker network create --subnet 172.31.250.0/24 --gateway 172.31.250.1 "$network" >/dev/null
 set --
-if [ -n "$profile" ]; then set -- --security-opt "apparmor=$profile"; fi
+if [ -n "$profile" ]; then set -- --security-opt "apparmor=$profile" --security-opt seccomp=unconfined; fi
 docker run -d --name "$server" --network "$network" --ip 172.31.250.2 \
     --cap-add NET_ADMIN --cap-add NET_RAW --read-only "$@" \
     --mount "$config" --mount "type=bind,src=$work/data,dst=/data" -e LAN_INTERFACE=eth0 \
@@ -117,6 +120,22 @@ if docker top "$server" -eo pid,uid,args >"$work/out" 2>&1 &&
     pass "drops privileges"
 else
     fail "drops privileges"
+fi
+if [ -n "$profile" ]; then
+    server_pid=$(docker inspect --format '{{.State.Pid}}' "$server")
+    label=$(sudo cat "/proc/$server_pid/attr/apparmor/current" 2>&1) || true
+    printf '%s\n' "$label" >"$work/out"
+    if [ "$label" = "$profile//dnsmasq (enforce)" ]; then
+        pass "runs dnsmasq under its enforced child profile"
+    else
+        fail "runs dnsmasq under its enforced child profile"
+    fi
+    if docker exec "$server" touch /data/lan-dhcp-test-blocked >"$work/out" 2>&1 ||
+        ! grep -qF "Permission denied" "$work/out"; then
+        fail "blocks a write outside the lease files"
+    else
+        pass "blocks a write outside the lease files"
+    fi
 fi
 if [ "$failed" = 1 ]; then
     echo "server log:"

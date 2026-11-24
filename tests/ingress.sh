@@ -78,7 +78,7 @@ docker network create --subnet 172.30.32.0/23 --gateway 172.30.32.1 \
     --opt "com.docker.network.bridge.name=$bridge" "$server" >/dev/null
 start_app() {
     docker run -d --name "$server" --network host --read-only --security-opt "apparmor=$profile" \
-        --cap-add NET_ADMIN --cap-add NET_RAW -e LAN_INTERFACE="$bridge" \
+        --security-opt seccomp=unconfined --cap-add NET_ADMIN --cap-add NET_RAW -e LAN_INTERFACE="$bridge" \
         --mount "type=bind,src=$work/config,dst=/config,readonly" \
         --mount "type=bind,src=$work/data,dst=/data" "$@" "$image" >/dev/null
 }
@@ -111,7 +111,9 @@ docker rm -f "$server" >/dev/null
 mkdir -p "$work/api/addons/self"
 echo '{"result":"ok","data":{"supervisor":"2026.10.2"}}' >"$work/api/info"
 echo '{"result":"ok","data":{"ingress_port":62042}}' >"$work/api/addons/self/info"
-docker run -d --name "$tcp_mock" --network "$server" --ip 172.30.32.2 --entrypoint httpd \
-    --mount "type=bind,src=$work/api,dst=/api,readonly" "$image" -f -p 80 -h /api >/dev/null
+docker run -d --name "$tcp_mock" --network "$server" --ip 172.30.32.2 \
+    --mount "type=bind,src=$work/api,dst=/api,readonly" \
+    python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd \
+    python3 -m http.server 80 --directory /api >/dev/null
 start_app -e SUPERVISOR_TOKEN=test-token
 check_page docker exec "$tcp_mock" wget -q -T 2 -O - "$url"

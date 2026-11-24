@@ -6,7 +6,7 @@
 
 ## 1.0.2
 
-- Confines LAN DHCP with an AppArmor profile on Home Assistant OS.
+- Confines LAN DHCP with AppArmor. The Home Assistant app blocks external hooks and writes outside its lease files.
 
 ## 1.0.1
 
