@@ -56,6 +56,9 @@ jobs:
         run: |
           sudo apparmor_parser --replace lan_dhcp/apparmor.txt
           tests/run.sh lan-dhcp:test lan_dhcp
+      - name: Show AppArmor denials
+        if: failure()
+        run: sudo journalctl --dmesg --grep 'apparmor="DENIED"' --no-pager
 
   image:
     name: Image
