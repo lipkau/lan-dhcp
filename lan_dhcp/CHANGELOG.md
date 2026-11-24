@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Confines LAN DHCP with an AppArmor profile on Home Assistant OS.
+
 ## 1.0.1
 
 - Drops expired leases before merging a lease seed. An expired lease for the same MAC or address no longer

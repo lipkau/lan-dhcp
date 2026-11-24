@@ -1,10 +1,11 @@
 #!/bin/sh
 # Run the entrypoint and a DHCP exchange against an image built from this repository.
-#   tests/run.sh <image>
+#   tests/run.sh <image> [apparmor-profile]
 set -eu
 
-[ $# -eq 1 ] || { echo "usage: $0 <image>" >&2; exit 2; }
+[ "$#" -ge 1 ] && [ "$#" -le 2 ] || { echo "usage: $0 <image> [apparmor-profile]" >&2; exit 2; }
 image=$1
+profile=${2:-}
 tests=$(cd "$(dirname "$0")" && pwd)
 work=$(mktemp -d)
 network=lan-dhcp-test-$$
@@ -65,7 +66,10 @@ chmod 777 "$work/data"
 printf '4102444800 00:00:5e:00:53:02 172.31.250.121 existing *\n1000 00:00:5e:00:53:05 172.31.250.120 stale *\n' \
     >"$work/data/dnsmasq.leases"
 docker network create --subnet 172.31.250.0/24 --gateway 172.31.250.1 "$network" >/dev/null
-docker run -d --name "$server" --network "$network" --ip 172.31.250.2 --cap-add NET_ADMIN --read-only \
+set --
+if [ -n "$profile" ]; then set -- --security-opt "apparmor=$profile"; fi
+docker run -d --name "$server" --network "$network" --ip 172.31.250.2 \
+    --cap-add NET_ADMIN --cap-add NET_RAW --read-only "$@" \
     --mount "$config" --mount "type=bind,src=$work/data,dst=/data" -e LAN_INTERFACE=eth0 \
     "$image" >/dev/null
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -86,6 +90,13 @@ if docker run --rm --network "$network" --mac-address 02:00:00:00:00:01 --entryp
 else
     fail "leases a long-pool address to a MAC exception"
 fi
+if docker run --rm --network "$network" --entrypoint nslookup "$image" \
+    -type=A existing.home.arpa 172.31.250.2:5300 >"$work/out" 2>&1 &&
+    grep -qF "172.31.250.121" "$work/out"; then
+    pass "resolves a leased hostname"
+else
+    fail "resolves a leased hostname"
+fi
 docker exec "$server" cat /data/dnsmasq.leases >"$work/out" 2>&1 || true
 if grep -q "02:00:00:00:00:02" "$work/out"; then pass "writes the lease file"; else fail "writes the lease file"; fi
 if grep -q "00:00:5e:00:53:01 172.31.250.120" "$work/out" && grep -q "00:00:5e:00:53:02 172.31.250.121" "$work/out" &&
@@ -95,8 +106,12 @@ if grep -q "00:00:5e:00:53:01 172.31.250.120" "$work/out" && grep -q "00:00:5e:0
 else
     fail "drops expired leases and merges only new, unexpired seed leases"
 fi
-docker exec "$server" ps -o user,args >"$work/out" 2>&1 || true
-if grep -q "^nobody .*dnsmasq" "$work/out"; then pass "drops privileges"; else fail "drops privileges"; fi
+if docker top "$server" -eo uid,args >"$work/out" 2>&1 &&
+    grep -Eq '^[[:space:]]*65534[[:space:]]+dnsmasq ' "$work/out"; then
+    pass "drops privileges"
+else
+    fail "drops privileges"
+fi
 if [ "$failed" = 1 ]; then
     echo "server log:"
     docker logs "$server" 2>&1 | sed 's/^/          /'

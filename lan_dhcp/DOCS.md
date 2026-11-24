@@ -60,6 +60,12 @@ dnsmasq's lease format to `dnsmasq.leases.seed` in the configuration folder and 
 drops its expired leases, then adds the seed's entries that expire in the future and whose MAC and address no live
 lease holds, so a seed never overrides a lease the app handed out. Delete the seed once its leases have expired.
 
+## AppArmor
+
+On Home Assistant OS, the app's AppArmor profile allows reads from `/config` and limits writes to the
+lease files in `/data`. Keep included configuration and data files such as host lists under `/config`.
+Lease hooks that execute external programs and options that write to other paths are blocked.
+
 ## Support
 
 Report problems in the [issue tracker](https://github.com/lipkau/lan-dhcp/issues).

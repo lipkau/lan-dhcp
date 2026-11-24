@@ -1,0 +1,40 @@
+abi <abi/3.0>,
+#include <tunables/global>
+
+profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
+  # The entrypoint uses BusyBox applets to read options and merge the lease seed.
+  /usr/local/bin/lan-dhcp rix,
+  /{usr/,}bin/busybox rix,
+  /usr/sbin/dnsmasq rix,
+  /{usr/,}lib/ld-musl-*.so.1 mr,
+  /{usr/,}lib/libc.musl-*.so.1 mr,
+
+  /dev/null rw,
+  /dev/urandom r,
+  /proc/[0-9]*/fd/ r,
+  /sys/class/net/ r,
+  /sys/devices/**/net/{,**} r,
+
+  /etc/{passwd,group,hosts,ethers,resolv.conf,localtime} r,
+  /usr/share/zoneinfo/** r,
+  /config/{,**} r,
+  /data/ r,
+  /data/{options.json,dnsmasq.leases.seed} r,
+  /data/{dnsmasq.leases,dnsmasq.leases.merge} rw,
+
+  # dnsmasq binds privileged ports, drops to nobody, and retains the
+  # capabilities it needs to deliver DHCP replies and check addresses.
+  capability net_bind_service,
+  capability net_admin,
+  capability net_raw,
+  capability setgid,
+  capability setuid,
+  network netlink raw,
+  network inet dgram,
+  network inet raw,
+  network inet stream,
+  network inet6 dgram,
+  network inet6 stream,
+
+  signal (receive),
+}
