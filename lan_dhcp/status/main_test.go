@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -73,27 +74,38 @@ func TestLeasePage(t *testing.T) {
 	}
 }
 
-func TestReadIngressPort(t *testing.T) {
+func TestDiscoverIngressPort(t *testing.T) {
 	cases := []struct {
-		body string
-		want int
+		version string
+		body    string
+		want    int
 	}{
-		{`{"result":"ok","data":{"ingress_port":62042}}`, 62042},
-		{`{"result":"ok","data":{"ingress_port":0}}`, 0},
-		{`{"result":"error","data":{"ingress_port":62042}}`, 0},
+		{"2026.10.2", `{"result":"ok","data":{"ingress_port":62042}}`, 62042},
+		{"2026.11.0", `{"result":"ok","data":{"ingress_port":0}}`, 0},
+		{"2026.11.0", `{"result":"error","data":{"ingress_port":62042}}`, 0},
+		{"2026.10.1", `{"result":"ok","data":{"ingress_port":62042}}`, 0},
+		{"2026.10.2.dev1", `{"result":"ok","data":{"ingress_port":62042}}`, 0},
 	}
 	for _, tc := range cases {
-		t.Run(tc.body, func(t *testing.T) {
+		t.Run(tc.version+" "+tc.body, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Authorization") != "Bearer test-token" {
 					t.Error("Supervisor request missing token")
 				}
-				_, _ = io.WriteString(w, tc.body)
+				switch r.URL.Path {
+				case "/info":
+					_, _ = fmt.Fprintf(w, `{"result":"ok","data":{"supervisor":%q}}`, tc.version)
+				case "/addons/self/info":
+					_, _ = io.WriteString(w, tc.body)
+				default:
+					t.Errorf("unexpected Supervisor request %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
 			}))
 			defer server.Close()
-			got, err := readIngressPort(server.Client(), server.URL, "test-token")
+			got, err := discoverIngressPort(server.Client(), server.URL, "test-token")
 			if got != tc.want || (err == nil) != (tc.want != 0) {
-				t.Errorf("readIngressPort() = %d, %v, want %d", got, err, tc.want)
+				t.Errorf("discoverIngressPort() = %d, %v, want %d", got, err, tc.want)
 			}
 		})
 	}

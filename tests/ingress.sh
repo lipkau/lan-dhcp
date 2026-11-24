@@ -25,7 +25,9 @@ port=0
 bind-dynamic
 dhcp-range=172.30.33.100,172.30.33.150,255.255.254.0,12h
 CONF
-echo '4102444800 02:00:00:00:00:10 172.30.33.110 test-device *' >"$work/data/dnsmasq.leases"
+echo '4102444800 02:00:00:00:00:10 172.30.33.110 test-device *' |
+    docker run --rm -i --mount "type=bind,src=$work/data,dst=/data" --entrypoint tee \
+        "$image" /data/dnsmasq.leases >/dev/null
 
 python3 - "$work/supervisor.sock" <<'PY' &
 from http.server import BaseHTTPRequestHandler
@@ -37,12 +39,16 @@ class AppInfo(BaseHTTPRequestHandler):
         return "localhost"
 
     def do_GET(self):
-        if self.path != "/addons/self/info":
+        responses = {
+            "/info": b'{"result":"ok","data":{"supervisor":"2026.10.2"}}',
+            "/addons/self/info": b'{"result":"ok","data":{"ingress_port":62042}}',
+        }
+        if self.path not in responses:
             self.send_error(404)
             return
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b'{"result":"ok","data":{"ingress_port":62042}}')
+        self.wfile.write(responses[self.path])
 
 with UnixStreamServer(sys.argv[1], AppInfo) as server:
     server.serve_forever()

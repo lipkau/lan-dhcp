@@ -154,36 +154,66 @@ func supervisorPort() (int, error) {
 		Timeout:       5 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
-	return readIngressPort(client, "http://"+supervisorIP+"/addons/self/info", token)
+	return discoverIngressPort(client, "http://"+supervisorIP, token)
 }
 
-func readIngressPort(client *http.Client, endpoint, token string) (int, error) {
-	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+func discoverIngressPort(client *http.Client, baseURL, token string) (int, error) {
+	system, err := readSupervisorInfo(client, baseURL+"/info", token)
 	if err != nil {
 		return 0, err
+	}
+	if !supportsAdminIngress(system.Version) {
+		return 0, fmt.Errorf("the lease page requires Supervisor 2026.10.2 or newer")
+	}
+	app, err := readSupervisorInfo(client, baseURL+"/addons/self/info", token)
+	if err != nil {
+		return 0, err
+	}
+	if app.Port < 62000 || app.Port > 65535 {
+		return 0, fmt.Errorf("Supervisor did not assign an ingress port")
+	}
+	return app.Port, nil
+}
+
+func supportsAdminIngress(version string) bool {
+	// Supervisor 2026.10.2 began enforcing panel_admin on sessions.
+	var year, month, patch int
+	if _, err := fmt.Sscanf(version, "%d.%d.%d", &year, &month, &patch); err != nil {
+		return false
+	}
+	return year > 2026 || year == 2026 && (month > 10 || month == 10 && (patch > 2 || patch == 2 && version == "2026.10.2"))
+}
+
+type supervisorInfo struct {
+	Version string `json:"supervisor"`
+	Port    int    `json:"ingress_port"`
+}
+
+func readSupervisorInfo(client *http.Client, endpoint, token string) (supervisorInfo, error) {
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return supervisorInfo{}, err
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return supervisorInfo{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("Supervisor app info returned HTTP %d", resp.StatusCode)
+		return supervisorInfo{}, fmt.Errorf("Supervisor %s returned HTTP %d", req.URL.Path, resp.StatusCode)
 	}
 	var info struct {
 		Result string
-		Data   struct {
-			Port int `json:"ingress_port"`
-		}
+		Data   supervisorInfo
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&info); err != nil {
-		return 0, fmt.Errorf("read Supervisor app info: %w", err)
+		return supervisorInfo{}, fmt.Errorf("read Supervisor %s: %w", req.URL.Path, err)
 	}
-	if info.Result != "ok" || info.Data.Port < 62000 || info.Data.Port > 65535 {
-		return 0, fmt.Errorf("Supervisor did not assign an ingress port")
+	if info.Result != "ok" {
+		return supervisorInfo{}, fmt.Errorf("Supervisor %s returned %q", req.URL.Path, info.Result)
 	}
-	return info.Data.Port, nil
+	return info.Data, nil
 }

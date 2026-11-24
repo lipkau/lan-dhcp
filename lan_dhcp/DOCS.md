@@ -53,7 +53,8 @@ Then connect a device and check it gets an address from the expected range.
 ## Leases
 
 In Home Assistant, select **Open Web UI** on the running app to see its serving interface and current IPv4 leases.
-The page is available to administrators and shows expiry times in UTC. Select **Refresh** for the latest leases.
+The page requires Supervisor 2026.10.2 or later. It is available to administrators and shows expiry times in UTC.
+Select **Refresh** for the latest leases.
 
 dnsmasq keeps its leases in the app's data folder. They survive restarts and updates; uninstalling the app deletes
 them.
