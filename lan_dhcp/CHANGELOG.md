@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- Shows the serving interface and active leases on a read-only Home Assistant Ingress page for administrators.
+
 ## 1.0.2
 
 - Confines LAN DHCP with an AppArmor profile on Home Assistant OS.

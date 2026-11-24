@@ -6,6 +6,8 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   /usr/local/bin/lan-dhcp rix,
   /{usr/,}bin/busybox rix,
   /usr/sbin/dnsmasq rix,
+  /sbin/su-exec Cx -> status-launcher,
+  /usr/local/bin/lan-dhcp-status rix,
   /{usr/,}lib/ld-musl-*.so.1 mr,
   /{usr/,}lib/libc.musl-*.so.1 mr,
 
@@ -18,6 +20,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   /etc/{passwd,group,hosts,ethers,resolv.conf,localtime} r,
   /usr/share/zoneinfo/** r,
   /config/{,**} r,
+  /run/supervisor/api/supervisor.sock rw,
   /data/ r,
   /data/{options.json,dnsmasq.leases.seed} r,
   /data/{dnsmasq.leases,dnsmasq.leases.merge} rw,
@@ -30,6 +33,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   capability setgid,
   capability setuid,
   network netlink raw,
+  network unix stream,
   network inet dgram,
   network inet raw,
   network inet stream,
@@ -37,4 +41,25 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   network inet6 stream,
 
   signal (receive),
+  signal peer=@{profile_name},
+
+  profile status-launcher flags=(attach_disconnected,mediate_deleted) {
+    /{usr/,}lib/ld-musl-*.so.1 mr,
+    /{usr/,}lib/libc.musl-*.so.1 mr,
+    /etc/{passwd,group} r,
+    /data/dnsmasq.leases r,
+    /dev/null rw,
+    /usr/local/bin/lan-dhcp-status Cx -> status,
+    capability setgid,
+    capability setuid,
+    signal (receive),
+
+    profile status flags=(attach_disconnected,mediate_deleted) {
+      /data/dnsmasq.leases r,
+      /dev/null rw,
+      network inet stream,
+      signal (receive),
+      signal peer=@{profile_name},
+    }
+  }
 }

@@ -77,6 +77,15 @@ for seed in /config/dnsmasq.leases.seed "$data/dnsmasq.leases.seed"; do
     mv "$leases.merge" "$leases" || die "cannot replace lease file $leases"
 done
 
+# The web page is optional for DHCP, and the standalone NAS container has no Supervisor.
+if [ -n "${SUPERVISOR_SOCKET:-}${SUPERVISOR_TOKEN:-}" ]; then
+    (
+        port=$(/usr/local/bin/lan-dhcp-status ingress-port) || exit 1
+        # Pass a read-only lease descriptor and strip the Supervisor credentials.
+        exec env -i /sbin/su-exec lan-dhcp-status /usr/local/bin/lan-dhcp-status "$port" "$interface" 3<"$leases"
+    ) &
+fi
+
 echo "lan-dhcp: serving $interface ($addresses), leases in $leases"
 exec dnsmasq --keep-in-foreground --log-facility=- --pid-file --conf-file="$config" \
     --interface="$interface" --dhcp-leasefile="$leases"
