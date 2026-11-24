@@ -8,12 +8,14 @@ profile=$2
 work=$(mktemp -d)
 server=lan-dhcp-ingress-$$
 bridge=dhcp-ci-$$
+tcp_mock=$server-supervisor
 socket_dir=/run/supervisor/supervisor/apps/ci_$$_lan_dhcp
 
 # shellcheck disable=SC2329 # called by the EXIT trap
 cleanup() {
     docker logs "$server" >&2 || true
     docker rm -f "$server" >/dev/null 2>&1 || true
+    docker rm -f "$tcp_mock" >/dev/null 2>&1 || true
     docker network rm "$server" >/dev/null 2>&1 || true
     if [ -n "${supervisor:-}" ]; then kill "$supervisor" 2>/dev/null || true; fi
     rm -rf "$work"
@@ -74,25 +76,42 @@ docker run --rm --entrypoint chown \
 
 docker network create --subnet 172.30.32.0/23 --gateway 172.30.32.1 \
     --opt "com.docker.network.bridge.name=$bridge" "$server" >/dev/null
-docker run -d --name "$server" --network host --read-only --security-opt "apparmor=$profile" \
-    --cap-add NET_ADMIN --cap-add NET_RAW -e LAN_INTERFACE="$bridge" \
-    -e SUPERVISOR_SOCKET=/run/supervisor/api/supervisor.sock \
-    --mount "type=bind,src=$socket_dir,dst=/run/supervisor/api,readonly" \
-    --mount "type=bind,src=$work/config,dst=/config,readonly" \
-    --mount "type=bind,src=$work/data,dst=/data" "$image" >/dev/null
+start_app() {
+    docker run -d --name "$server" --network host --read-only --security-opt "apparmor=$profile" \
+        --cap-add NET_ADMIN --cap-add NET_RAW -e LAN_INTERFACE="$bridge" \
+        --mount "type=bind,src=$work/config,dst=/config,readonly" \
+        --mount "type=bind,src=$work/data,dst=/data" "$@" "$image" >/dev/null
+}
+
+start_app -e SUPERVISOR_SOCKET=/run/supervisor/api/supervisor.sock \
+    --mount "type=bind,src=$socket_dir,dst=/run/supervisor/api,readonly"
 
 url=http://172.30.32.1:62042/
-for _ in 1 2 3 4 5; do
-    if docker run --rm --network "$server" --ip 172.30.32.2 --entrypoint wget \
-        "$image" -q -T 2 -O - "$url" >"$work/page" 2>"$work/client.log"; then
-        break
+check_page() {
+    for _ in 1 2 3 4 5; do
+        if "$@" >"$work/page" 2>"$work/client.log"; then
+            break
+        fi
+        sleep 1
+    done
+    if ! grep -Fq 'test-device' "$work/page"; then
+        cat "$work/client.log" >&2
+        docker top "$server" -eo pid,uid,args >&2 || true
+        exit 1
     fi
-    sleep 1
-done
-if ! grep -Fq 'test-device' "$work/page"; then
-    cat "$work/client.log" >&2
-    docker top "$server" -eo pid,uid,args >&2 || true
-    exit 1
-fi
-grep -Fq "$bridge" "$work/page"
-test "$(curl --max-time 3 --noproxy '*' -s -o /dev/null -w '%{http_code}' "$url")" = 403
+    grep -Fq "$bridge" "$work/page"
+    test "$(curl --max-time 3 --noproxy '*' -s -o /dev/null -w '%{http_code}' "$url")" = 403
+}
+
+check_page docker run --rm --network "$server" --ip 172.30.32.2 --entrypoint wget \
+    "$image" -q -T 2 -O - "$url"
+docker rm -f "$server" >/dev/null
+
+# Before Supervisor introduced per-app sockets, the app used the same endpoints over TCP.
+mkdir -p "$work/api/addons/self"
+echo '{"result":"ok","data":{"supervisor":"2026.10.2"}}' >"$work/api/info"
+echo '{"result":"ok","data":{"ingress_port":62042}}' >"$work/api/addons/self/info"
+docker run -d --name "$tcp_mock" --network "$server" --ip 172.30.32.2 --entrypoint httpd \
+    --mount "type=bind,src=$work/api,dst=/api,readonly" "$image" -f -p 80 -h /api >/dev/null
+start_app -e SUPERVISOR_TOKEN=test-token
+check_page docker exec "$tcp_mock" wget -q -T 2 -O - "$url"

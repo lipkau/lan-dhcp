@@ -26,6 +26,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Check the lease page
+        working-directory: lan_dhcp/status
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
       - run: npm ci
       - run: npx biome ci --reporter=github
       - run: shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh

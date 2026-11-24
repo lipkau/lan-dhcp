@@ -4,22 +4,24 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 
 ## Layout
 
-| Path              | Contents                                                                                                                                 |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                   |
-| `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
-| `tests/`          | `run.sh` and its fixtures.                                                                                                               |
-| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                      |
+| Path               | Contents                                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `repository.yaml`  | Makes this repository a Home Assistant app repository.                                                                                   |
+| `lan_dhcp/`        | The app: `config.yaml`, its documentation, changelog, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
+| `lan_dhcp/status/` | The read-only Ingress page and its Go tests.                                                                                             |
+| `tests/`           | `run.sh` and its fixtures.                                                                                                               |
+| `.github/`         | CI workflows, the release check, Renovate configuration, templates.                                                                      |
 
 ## Develop and test
 
-You need Docker, Node.js (the version in `.nvmrc`) and [ShellCheck](https://www.shellcheck.net/).
+You need Docker, Node.js (the version in `.nvmrc`) and [ShellCheck](https://www.shellcheck.net/). Use Go 1.27 or later to work on the Ingress page.
 
 ```sh
 npm ci
 npx biome ci                                    # formatting and lint
 shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
 .github/scripts/check-release.sh                # app version and changelog
+(cd lan_dhcp/status && go vet ./... && go test ./...)
 docker build -t lan-dhcp:test lan_dhcp
 tests/run.sh lan-dhcp:test
 ```

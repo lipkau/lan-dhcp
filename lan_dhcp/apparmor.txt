@@ -1,6 +1,9 @@
 abi <abi/3.0>,
 #include <tunables/global>
 
+# The Go runtime can start without these optional host probes.
+@{GO_PROBES} = /sys/kernel/mm/transparent_hugepage/hpage_pmd_size /proc/[0-9]*/cgroup
+
 profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   # The entrypoint uses BusyBox applets to read options and merge the lease seed.
   /usr/local/bin/lan-dhcp rix,
@@ -13,6 +16,7 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
 
   /dev/null rw,
   /dev/urandom r,
+  deny @{GO_PROBES} r,
   /proc/[0-9]*/fd/ r,
   /sys/class/net/ r,
   /sys/devices/**/net/{,**} r,
@@ -54,14 +58,14 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
     /etc/{passwd,group} r,
     /data/dnsmasq.leases r,
     /dev/null rw,
+    deny @{GO_PROBES} r,
+    deny /etc/localtime r,
 
     # su-exec drops the user and group before starting the web server.
     capability setgid,
     capability setuid,
-    # musl can probe the local name-service cache before reading passwd and group.
-    network unix stream,
     network inet stream,
     signal (receive),
-    signal (send) set=(urg),
+    signal (send) set=(urg) peer=@{profile_name},
   }
 }

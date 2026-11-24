@@ -6,6 +6,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -27,6 +28,8 @@ const (
 //go:embed status.html
 var statusHTML string
 var statusPage = template.Must(template.New("status").Parse(statusHTML))
+
+var errUnsupportedSupervisor = errors.New("the lease page requires Supervisor 2026.10.2 or newer")
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "ingress-port" {
@@ -97,7 +100,7 @@ func activeLeases(reader io.Reader, now time.Time) ([]lease, error) {
 	return leases, scanner.Err()
 }
 
-func leaseHandler(iface string, file io.ReaderAt) http.Handler {
+func leaseHandler(iface string, file *os.File) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil || host != supervisorIP {
@@ -119,8 +122,7 @@ func leaseHandler(iface string, file io.ReaderAt) http.Handler {
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		// A SectionReader gives concurrent requests independent offsets.
-		leases, err := activeLeases(io.NewSectionReader(file, 0, 4<<20), time.Now())
+		leases, err := readCurrentLeases(file)
 		if err != nil {
 			http.Error(w, "Could not read the lease file", http.StatusServiceUnavailable)
 			return
@@ -140,6 +142,28 @@ func leaseHandler(iface string, file io.ReaderAt) http.Handler {
 	})
 }
 
+func readCurrentLeases(file *os.File) ([]lease, error) {
+	before, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	// A SectionReader gives concurrent requests independent offsets.
+	leases, err := activeLeases(io.NewSectionReader(file, 0, 4<<20), now)
+	if err != nil {
+		return nil, err
+	}
+	after, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	// dnsmasq truncates and rewrites the lease file in place.
+	if before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
+		return activeLeases(io.NewSectionReader(file, 0, 4<<20), now)
+	}
+	return leases, nil
+}
+
 func supervisorPort() (int, error) {
 	transport := &http.Transport{}
 	token := os.Getenv("SUPERVISOR_TOKEN")
@@ -151,10 +175,18 @@ func supervisorPort() (int, error) {
 	}
 	client := &http.Client{
 		Transport:     transport,
-		Timeout:       5 * time.Second,
+		Timeout:       2 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
-	return discoverIngressPort(client, "http://"+supervisorIP, token)
+	port, err := discoverIngressPort(client, "http://"+supervisorIP, token)
+	for _, delay := range []time.Duration{250 * time.Millisecond, 500 * time.Millisecond} {
+		if err == nil || errors.Is(err, errUnsupportedSupervisor) {
+			break
+		}
+		time.Sleep(delay)
+		port, err = discoverIngressPort(client, "http://"+supervisorIP, token)
+	}
+	return port, err
 }
 
 func discoverIngressPort(client *http.Client, baseURL, token string) (int, error) {
@@ -163,13 +195,13 @@ func discoverIngressPort(client *http.Client, baseURL, token string) (int, error
 		return 0, err
 	}
 	if !supportsAdminIngress(system.Version) {
-		return 0, fmt.Errorf("the lease page requires Supervisor 2026.10.2 or newer")
+		return 0, errUnsupportedSupervisor
 	}
 	app, err := readSupervisorInfo(client, baseURL+"/addons/self/info", token)
 	if err != nil {
 		return 0, err
 	}
-	if app.Port < 62000 || app.Port > 65535 {
+	if app.Port < 1 || app.Port > 65535 {
 		return 0, fmt.Errorf("Supervisor did not assign an ingress port")
 	}
 	return app.Port, nil

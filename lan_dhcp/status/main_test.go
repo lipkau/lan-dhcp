@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,14 @@ duid 00:00
 }
 
 func TestLeasePage(t *testing.T) {
-	leases := strings.NewReader("0 02:00:00:00:00:01 192.0.2.100 <unsafe> *\n")
+	leases, err := os.CreateTemp(t.TempDir(), "leases")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer leases.Close()
+	if _, err := leases.WriteString("0 02:00:00:00:00:01 192.0.2.100 <unsafe> *\n"); err != nil {
+		t.Fatal(err)
+	}
 	handler := leaseHandler("end0", leases)
 	cases := []struct {
 		name   string
@@ -80,7 +88,7 @@ func TestDiscoverIngressPort(t *testing.T) {
 		body    string
 		want    int
 	}{
-		{"2026.10.2", `{"result":"ok","data":{"ingress_port":62042}}`, 62042},
+		{"2026.10.2", `{"result":"ok","data":{"ingress_port":8099}}`, 8099},
 		{"2026.11.0", `{"result":"ok","data":{"ingress_port":0}}`, 0},
 		{"2026.11.0", `{"result":"error","data":{"ingress_port":62042}}`, 0},
 		{"2026.10.1", `{"result":"ok","data":{"ingress_port":62042}}`, 0},
