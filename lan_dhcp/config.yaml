@@ -12,7 +12,6 @@ image: ghcr.io/lipkau/lan-dhcp
 startup: system
 # Never starts on its own: only one DHCP server may serve the LAN (DOCS.md).
 boot: manual
-apparmor: true
 host_network: true
 init: false
 privileged:

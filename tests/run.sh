@@ -106,8 +106,8 @@ if grep -q "00:00:5e:00:53:01 172.31.250.120" "$work/out" && grep -q "00:00:5e:0
 else
     fail "drops expired leases and merges only new, unexpired seed leases"
 fi
-if docker top "$server" -eo uid,args >"$work/out" 2>&1 &&
-    grep -Eq '^[[:space:]]*65534[[:space:]]+dnsmasq ' "$work/out"; then
+if docker top "$server" -eo pid,uid,args >"$work/out" 2>&1 &&
+    grep -Eq '^[[:space:]]*[0-9]+[[:space:]]+65534[[:space:]]+dnsmasq ' "$work/out"; then
     pass "drops privileges"
 else
     fail "drops privileges"
