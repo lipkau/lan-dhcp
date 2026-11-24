@@ -8,6 +8,7 @@ profile=$2
 work=$(mktemp -d)
 server=lan-dhcp-ingress-$$
 bridge=dhcp-ci-$$
+socket_dir=/run/supervisor/supervisor/apps/ci_$$_lan_dhcp
 
 # shellcheck disable=SC2329 # called by the EXIT trap
 cleanup() {
@@ -15,11 +16,13 @@ cleanup() {
     docker rm -f "$server" >/dev/null 2>&1 || true
     docker network rm "$server" >/dev/null 2>&1 || true
     if [ -n "${supervisor:-}" ]; then kill "$supervisor" 2>/dev/null || true; fi
-    rm -rf "$work"
+    rm -rf "$work" "$socket_dir"
 }
 trap cleanup EXIT
 
 mkdir "$work/config" "$work/data"
+# Mirror the Supervisor's host-side socket path and the app's directory mount.
+sudo install -d -m 755 -o "$(id -u)" -g "$(id -g)" "$socket_dir"
 cat >"$work/config/dnsmasq.conf" <<'CONF'
 port=0
 bind-dynamic
@@ -29,7 +32,7 @@ echo '4102444800 02:00:00:00:00:10 172.30.33.110 test-device *' |
     docker run --rm -i --mount "type=bind,src=$work/data,dst=/data" --entrypoint tee \
         "$image" /data/dnsmasq.leases >/dev/null
 
-python3 - "$work/supervisor.sock" <<'PY' &
+python3 - "$socket_dir/supervisor.sock" <<'PY' &
 from http.server import BaseHTTPRequestHandler
 from socketserver import UnixStreamServer
 from os import chmod
@@ -57,20 +60,20 @@ with UnixStreamServer(sys.argv[1], AppInfo) as server:
 PY
 supervisor=$!
 for _ in 1 2 3 4 5; do
-    [ ! -S "$work/supervisor.sock" ] || break
+    [ ! -S "$socket_dir/supervisor.sock" ] || break
     sleep 1
 done
-test -S "$work/supervisor.sock"
+test -S "$socket_dir/supervisor.sock"
 # HAOS Supervisor creates its per-app socket as root with mode 0600.
 docker run --rm --entrypoint chown \
-    --mount "type=bind,src=$work/supervisor.sock,dst=/supervisor.sock" "$image" 0:0 /supervisor.sock
+    --mount "type=bind,src=$socket_dir/supervisor.sock,dst=/supervisor.sock" "$image" 0:0 /supervisor.sock
 
 docker network create --subnet 172.30.32.0/23 --gateway 172.30.32.1 \
     --opt "com.docker.network.bridge.name=$bridge" "$server" >/dev/null
 docker run -d --name "$server" --network host --read-only --security-opt "apparmor=$profile" \
     --cap-add NET_ADMIN --cap-add NET_RAW -e LAN_INTERFACE="$bridge" \
     -e SUPERVISOR_SOCKET=/run/supervisor/api/supervisor.sock \
-    --mount "type=bind,src=$work/supervisor.sock,dst=/run/supervisor/api/supervisor.sock,readonly" \
+    --mount "type=bind,src=$socket_dir,dst=/run/supervisor/api,readonly" \
     --mount "type=bind,src=$work/config,dst=/config,readonly" \
     --mount "type=bind,src=$work/data,dst=/data" "$image" >/dev/null
 

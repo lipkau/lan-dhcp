@@ -20,7 +20,9 @@ profile lan_dhcp flags=(attach_disconnected,mediate_deleted) {
   /etc/{passwd,group,hosts,ethers,resolv.conf,localtime} r,
   /usr/share/zoneinfo/** r,
   /config/{,**} r,
+  # A Unix socket connection can also be checked against the listener's bind path.
   /run/supervisor/api/supervisor.sock rw,
+  /run/{os,supervisor}/supervisor/apps/*_lan_dhcp/supervisor.sock rw,
   /data/ r,
   /data/{options.json,dnsmasq.leases.seed} r,
   /data/{dnsmasq.leases,dnsmasq.leases.merge} rw,
