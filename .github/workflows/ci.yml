@@ -26,9 +26,19 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Check the lease page
+        working-directory: lan_dhcp/status
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
       - run: npm ci
       - run: npx biome ci --reporter=github
-      - run: shellcheck lan_dhcp/entrypoint.sh tests/run.sh .github/scripts/*.sh
+      - run: shellcheck lan_dhcp/entrypoint.sh tests/*.sh .github/scripts/*.sh
       # Supervisor pulls the image tagged with the app version, so a release tag must match it.
       - name: Check the app version
         env:
@@ -63,6 +73,7 @@ jobs:
           sudo apparmor_parser --replace --skip-cache "$policy"
           started=$(date +%s)
           tests/run.sh lan-dhcp:test "$profile"
+          tests/ingress.sh lan-dhcp:test "$profile"
           denials=$(sudo journalctl --dmesg --since "@$started" --no-pager --grep 'apparmor="DENIED"' |
             grep -F "profile=\"$profile" | grep -vF 'name="/data/lan-dhcp-test-blocked"' || true)
           if [ -n "$denials" ]; then

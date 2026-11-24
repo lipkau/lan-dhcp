@@ -16,6 +16,13 @@ RUN wget -q -O dnsmasq.tar.gz "https://thekelleys.org.uk/dnsmasq/dnsmasq-${DNSMA
   && strip src/dnsmasq \
   && src/dnsmasq --version | grep -q "^Dnsmasq version ${DNSMASQ_VERSION} "
 
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS status
+WORKDIR /status
+COPY status/ .
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+  go build -trimpath -ldflags="-s -w" -o /out/lan-dhcp-status .
+
 FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 ARG DNSMASQ_VERSION
 LABEL org.opencontainers.image.title="lan-dhcp" \
@@ -23,7 +30,12 @@ LABEL org.opencontainers.image.title="lan-dhcp" \
   org.opencontainers.image.url="https://github.com/lipkau/lan-dhcp" \
   org.opencontainers.image.source="https://github.com/lipkau/lan-dhcp" \
   org.opencontainers.image.vendor="Oliver Lipkau"
+RUN apk add --no-cache su-exec \
+  && addgroup -S lan-dhcp-status \
+  && adduser -S -D -H -G lan-dhcp-status -s /sbin/nologin lan-dhcp-status
+
 COPY --from=build /src/src/dnsmasq /usr/sbin/dnsmasq
+COPY --from=status /out/lan-dhcp-status /usr/local/bin/lan-dhcp-status
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/lan-dhcp
 # Starts as root on purpose: dnsmasq binds UDP 67 and opens the lease file, then drops to nobody.
 ENTRYPOINT ["/usr/local/bin/lan-dhcp"]
