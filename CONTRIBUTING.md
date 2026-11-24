@@ -4,12 +4,12 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 
 ## Layout
 
-| Path              | Contents                                                                                                                                 |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                   |
-| `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
-| `tests/`          | `run.sh` and its fixtures.                                                                                                               |
-| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                      |
+| Path              | Contents                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repository.yaml` | Makes this repository a Home Assistant app repository.                                                                                                     |
+| `lan_dhcp/`       | The app: `config.yaml`, its documentation, changelog, AppArmor profile, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
+| `tests/`          | `run.sh` and its fixtures.                                                                                                                                 |
+| `.github/`        | CI workflows, the release check, Renovate configuration, templates.                                                                                        |
 
 ## Develop and test
 
@@ -26,7 +26,8 @@ tests/run.sh lan-dhcp:test
 
 `tests/run.sh` runs the entrypoint through its failure cases, then starts the image on a temporary Docker network
 and leases addresses to test clients. It removes the network when it finishes. `tests/config/` is a fixture on a
-private test subnet.
+private test subnet. CI also loads the policy in `lan_dhcp/apparmor.txt` under the Supervisor-style app name
+and runs the suite with it enforced.
 
 Pull requests run the same checks, plus the [Home Assistant app linter](https://github.com/frenck/action-addon-linter).
 The `CI result` job must pass before a merge.

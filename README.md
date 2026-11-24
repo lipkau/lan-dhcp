@@ -4,8 +4,8 @@
 
 [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) as a DHCPv4 server, packaged as a Home Assistant app and
 as a container image. You write the `dnsmasq.conf`; the app adds nothing to it and hides no option behind a form.
-That keeps every dnsmasq feature available: tags, MAC wildcards, per-device reservations, several pools, and DNS
-answers for the names it hands out.
+The configuration supports tags, MAC wildcards, per-device reservations, multiple pools and lease DNS. On Home
+Assistant, an AppArmor profile restricts dnsmasq’s file access and blocks external hooks.
 
 The same image runs as the Home Assistant app and as a plain Docker container, so one configuration can serve
 from either host.

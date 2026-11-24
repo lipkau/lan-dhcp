@@ -60,6 +60,13 @@ dnsmasq's lease format to `dnsmasq.leases.seed` in the configuration folder and 
 drops its expired leases, then adds the seed's entries that expire in the future and whose MAC and address no live
 lease holds, so a seed never overrides a lease the app handed out. Delete the seed once its leases have expired.
 
+## AppArmor
+
+On hosts with AppArmor, Supervisor loads the app's profile. dnsmasq can read files in `/config` and write its
+lease database in `/data`. Keep configuration includes and host lists under `/config` and make them readable by
+the process. The profile blocks external scripts, extra output files and IPv6 router advertisements. Check the
+host log for AppArmor denials if an option fails.
+
 ## Support
 
 Report problems in the [issue tracker](https://github.com/lipkau/lan-dhcp/issues).
