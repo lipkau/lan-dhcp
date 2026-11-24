@@ -54,8 +54,21 @@ jobs:
       - run: tests/run.sh lan-dhcp:test
       - name: Test with the app's AppArmor profile
         run: |
-          sudo apparmor_parser --replace lan_dhcp/apparmor.txt
-          tests/run.sh lan-dhcp:test lan_dhcp
+          profile=local_lan_dhcp
+          policy="$RUNNER_TEMP/$profile"
+          sed "s/^profile lan_dhcp /profile $profile /" lan_dhcp/apparmor.txt > "$policy"
+          names=$(sudo apparmor_parser --names --skip-cache "$policy")
+          test "$(printf '%s\n' "$names" | grep -xc "$profile")" = 1
+          test -z "$(printf '%s\n' "$names" | grep -vE "^$profile(//.+)?$")"
+          sudo apparmor_parser --replace --skip-cache "$policy"
+          started=$(date +%s)
+          tests/run.sh lan-dhcp:test "$profile"
+          denials=$(sudo journalctl --dmesg --since "@$started" --no-pager --grep 'apparmor="DENIED"' |
+            grep -F "profile=\"$profile" | grep -vF 'name="/data/lan-dhcp-test-blocked"' || true)
+          if [ -n "$denials" ]; then
+            printf '%s\n' "$denials"
+            exit 1
+          fi
       - name: Show AppArmor denials
         if: failure()
         run: sudo journalctl --dmesg --grep 'apparmor="DENIED"' --no-pager

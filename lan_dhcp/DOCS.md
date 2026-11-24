@@ -62,9 +62,10 @@ lease holds, so a seed never overrides a lease the app handed out. Delete the se
 
 ## AppArmor
 
-On Home Assistant OS, the app's AppArmor profile allows reads from `/config` and limits writes to the
-lease files in `/data`. Keep included configuration and data files such as host lists under `/config`.
-The profile blocks custom hook scripts under `/config` and writes to other paths.
+On hosts with AppArmor, Supervisor loads the app's profile. dnsmasq can read files in `/config` and write its
+lease database in `/data`. Keep configuration includes and host lists under `/config` and make them readable by
+the process. The profile blocks external scripts, extra output files and IPv6 router advertisements. Check the
+host log for AppArmor denials if an option fails.
 
 ## Support
 
