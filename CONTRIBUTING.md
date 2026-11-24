@@ -10,7 +10,7 @@ Issues and pull requests are welcome. For a larger change, open an issue first s
 | `lan_dhcp/`        | The app: `config.yaml`, its documentation, changelog, AppArmor profile, icon and logo, option translations, and the image (`Dockerfile`, `entrypoint.sh`). |
 | `lan_dhcp/status/` | The read-only Ingress page and its Go tests.                                                                                                               |
 | `tests/`           | `run.sh` and its fixtures.                                                                                                                                 |
-| `.github/`         | CI workflows, the release check, Renovate configuration, templates.                                                                                        |
+| `.github/`         | CI workflows, the release scripts, Renovate configuration, templates.                                                                                      |
 
 ## Develop and test
 
@@ -36,17 +36,38 @@ The `CI result` job must pass before a merge.
 
 ## Releases
 
-Home Assistant pulls `ghcr.io/lipkau/lan-dhcp:<version>`, where `<version>` is `version` in
-`lan_dhcp/config.yaml`. Only a matching release tag publishes that image.
+Every merge to `main` that changes the app (anything in `lan_dhcp/` apart from its changelog) releases it. Don't
+bump the version or write a changelog entry in the pull request. After the merge, CI's **Release** job:
 
-1. In the pull request, bump `version` in `lan_dhcp/config.yaml` and add a `## <version>` entry to
-   `lan_dhcp/CHANGELOG.md`.
-2. After the merge, tag the merge commit on `main` as `v<version>` and push the tag. CI rejects a tag that doesn't
-   match the version.
-3. Home Assistant offers the update as soon as `main` has the new version. Wait for the tag's image job to finish
-   before you install it.
+1. bumps `version` in `lan_dhcp/config.yaml` and adds a `## <version>` entry to `lan_dhcp/CHANGELOG.md` with a line
+   for each change since the last release;
+2. checks both as CI would, commits them to `main` as `chore(release): <version>` and tags the commit `v<version>`;
+3. and the tag's CI run publishes `ghcr.io/lipkau/lan-dhcp:<version>`, the image Home Assistant pulls, once its
+   checks pass.
 
-Bump the version for every change to the image or to `config.yaml`. Documentation changes don't need a release.
+The subjects of the changes decide the version, so write them as
+[conventional commits](https://www.conventionalcommits.org/):
+
+| Subject                                   | Release                  |
+| ----------------------------------------- | ------------------------ |
+| `feat!: …` or any other type with `!`     | major: `1.4.2` → `2.0.0` |
+| `feat: …`                                 | minor: `1.4.2` → `1.5.0` |
+| anything else (`fix:`, `chore(deps):`, …) | patch: `1.4.2` → `1.4.3` |
+
+Which subjects count depends on how the pull request is merged:
+
+- **Squash merge:** the squash commit's subject. GitHub suggests the pull request title, or the commit's subject for
+  a single commit, and you can edit it when you merge.
+- **Merge commit:** the subject of each merged commit that changed the app. If the merge commit itself made the
+  change, such as a conflict resolution, the pull request title GitHub writes into its message counts instead.
+
+The changelog shows each subject without its type, so write it for the person who updates the app. Changes outside
+`lan_dhcp/`, such as tests, CI or the README, don't release.
+
+The job pushes with the `RELEASE_DEPLOY_KEY` secret of the `release` environment, which only `main` may use. The
+secret is the private half of a deploy key with write access, and the `main` ruleset lists that key as a bypass
+actor. A push with the workflow token would start no CI run for the tag. Home Assistant offers the update as soon as
+`main` has the new version; the image follows when the tag's CI run passes, a few minutes later.
 
 ## Update dnsmasq
 
@@ -54,7 +75,7 @@ Renovate keeps the Alpine base image and the actions current. dnsmasq is updated
 
 1. Download the new tarball and its signature from <https://thekelleys.org.uk/dnsmasq/>, and verify the signature
    against Simon Kelley's key (`D6EA CBD6 EE46 B834 248D 1112 15CD DA6A E191 35A2`).
-2. Set `DNSMASQ_VERSION` and `DNSMASQ_SHA256` in `lan_dhcp/Dockerfile` together, and release.
+2. Set `DNSMASQ_VERSION` and `DNSMASQ_SHA256` in `lan_dhcp/Dockerfile` together. The merge releases it.
 
 ## Icon and logo
 
